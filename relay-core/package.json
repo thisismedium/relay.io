@@ -1,0 +1,13 @@
+{
+  "name": "relay-core",
+  "description": "",
+  "version": "0.0.1",
+  "author": "",
+  "contributors": [],
+  "dependencies": {},
+  "keywords": [],
+  "directories": { "lib": "lib/relay-core" },
+  "scripts": {},
+  "bin": {},
+  "engines": { "node": ">= 0.2.4" }
+}
