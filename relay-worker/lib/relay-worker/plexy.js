@@ -1,16 +1,18 @@
 var net    = require('net');
 var events = require('events');
-var pack   = require('./pack') 
+var pack   = require('./pack');
 
-function zpad (x) { return x.length < 2 ? "0"+x : x }
-function hex (x) { return zpad(x.charCodeAt(0).toString(16)); }
+var Buffer = require('buffer').Buffer;
 
-function decodeBE (bytes) {
-  var acc = 0;
-  for (var i = 0; i < bytes.length; i++) {
-    acc += Math.pow(256, bytes.length - i - 1) * bytes[i];
+exports.test = function test(n) {
+  var b = new Buffer(pack.pack('n',n), 'binary');
+  console.log(b)
+  for (var out = 0, i = 0; i < b.length; i++) {
+    var out = out << 8;
+    var out = out | b[i];
   }
-  return acc;
+  console.log(out);
+  return out
 }
 
 function PlexyChannel (number, parent) {

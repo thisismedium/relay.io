@@ -29,7 +29,6 @@ function autoRecord (init) {
     for (k in data) {
       if (data.hasOwnProperty(k) && typeof(data[k]) != "function"){
         (function (self, key) {
-          var tcheck = isTypeOf.curry(typeof(self._data_[key]));
           var turkey = key[0].toUpperCase() + key.slice(1);
           if (!self['get' + turkey])
             self['get' + turkey] = function () { 

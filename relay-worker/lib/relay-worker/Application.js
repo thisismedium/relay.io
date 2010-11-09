@@ -1,45 +1,128 @@
-function Application (appId) {
-  appId = appId;
-  subscribers = {};
+var api   = require("relay-core/api");
 
-  this.addSubscriber = function (resource, subscriber) {
-    if (subscribers[resource]) {
-      subscribers[resource].push(subscriber);
+
+var ApplicationSocketLink = require("./ApplicationSocketLink").ApplicationSocketLink;
+
+// Application ////////////////////////////////////////////////////////////
+
+function Application (appId) {
+
+  this.getAppId = function () { 
+    return appId 
+  };
+
+  // Application.assumeStream - give an application control over a socket
+  this.assumeStream = function(stream) {
+    streamHandler(stream);
+  };
+
+  ////////////////////////////////////////////////////////////////////////
+
+  // The applications id 
+  appId = appId;
+
+  // The routes of this application can be either @users or #channels
+  // subchannels look like #channels/#subchannel
+  // this is a flat list of key/value mappings
+  // all application have a #global channel.  The global channel acts
+  // as a control channel for the entire application.
+
+  routes = { "#global": [] };
+
+  current_client_id = 0;
+
+  function newClientId () {
+    return ("client-" + appId + "-" + current_client_id++);
+  }
+
+  ////////////////////////////////////////////////////////////////////////
+
+  function streamHandler (stream) {
+    var app_stream = new ApplicationSocketLink(stream);
+    app_stream.on("data", function (data) {
+      processRequest (data, app_stream);
+    });
+    app_stream.on("close", function () {
+      app_stream.destroy();
+    });
+    app_stream.on("end", function () {
+      app_stream.destroy();
+    });
+  };
+  
+  ////////////////////////////////////////////////////////////////////////
+
+  function processRequest(request, sender) {
+    var calls = { 
+      "Hello" : function () {
+        var client_id = newClientId();
+        sender.write(new api.HelloResponse(client_id))
+        joinRoute("@"+client_id, sender);
+        joinRoute("#global", sender);
+        sendToResource("#global", new api.MessageRequest("#global","@master","User @" + client_id + " has entered #global"));
+        sender.client_id = client_id;
+      },
+      "Join" : function () {
+        sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + sender.client_id + " has entered channel " + request.getBody()));
+        joinRoute(request.getBody(), sender);
+        sender.write(new api.JoinResponse());
+      },
+      "Message" : function () {
+        request.setFrom("@"+sender.client_id)
+        sendToResource(request.getTo(), request)
+        sender.write(new api.MessageResponse());
+      }
+    }
+    console.log(request.dump());
+    calls[request.getType()]();
+  };
+
+  ////////////////////////////////////////////////////////////////////////
+
+  function joinRoute (id, sender) {
+    addSubscriber (id, sender);
+    sender.on("close", function () {
+      removeSubscriber(id, sender);
+    });
+  }
+
+  function addSubscriber (resource, subscriber) {
+    if (routes[resource]) {
+      routes[resource].push(subscriber);
       return true
     } else {
-      subscribers[resource] = []
-      return this.addSubscriber(resource, subscriber);
+      routes[resource] = []
+      return addSubscriber(resource, subscriber);
     }
   };
 
-  this.getAppId = function () { return appId };
+  function removeSubscriber (resource, subscriber) {
+    console.log("Removing subscriber");
+    var out = [];
+    var res = routes[resource];
+    console.log(res.length);
+    for (var i = 0; i < res.length; i++) {
+      if (res[i] != subscriber) out.push(res[i]);
+    }
+    routes[resource] = out;
+    console.log(out.length);
+    sendToResource(resource, new api.MessageRequest(resource, "@master","User @" + subscriber.client_id + " has left the channel " + resource));
+  };
 
-  this.sendToResource = function (resource, mesg) {
-    if (subscribers[resource]) {
-      subscribers[resource].forEach(function(subscriber) {
-        subscriber.send(mesg);
+
+  ////////////////////////////////////////////////////////////////////////
+
+  function sendToResource(resource, mesg) {
+    if (routes[resource]) {
+      routes[resource].forEach(function(subscriber) {
+        subscriber.write(mesg);
       });
       return true;
     } else {
       return false;
     }
   };
+  
 
-  this.processRequest = function (request, sender) {
-    var calls = { 
-      "Hello" : function () {
-        sender.send(new api.HelloResp(this.newClientId()))
-      },
-      "Join" : function () {
-        this.addSubscriber (request.getBody(), sender);
-        sender.send(api.MessageResp());
-      },
-      "Message" : function () {
-        this.sendToResource(request.getTo(), request)
-      }
-    }
-    calls[request.getType()]();
-  };
 }
-
 exports.Application = Application;

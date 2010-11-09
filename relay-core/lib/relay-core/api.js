@@ -1,4 +1,3 @@
-
 var autoRecord = require("./autorecord").autoRecord;
 
 /*
@@ -14,16 +13,25 @@ var autoRecord = require("./autorecord").autoRecord;
   var ST_SUCCESS = 200;
   var ST_ERROR   = 500;
 
+  var ST_INVALID_APP = 501; // Invalid application
+
+  exports.InvalidApplicationError = autoRecord (function () {
+    this.load({ "type": "Error",
+                "status": ST_INVALID_APP,
+                "body": "Not a valid application"
+              });
+    });
+
   // Hello - Initialize a connection
 
-  exports.HelloReq = autoRecord (function(app_id) {
+  exports.HelloRequest = autoRecord (function(app_id) {
     this.load({
       "type": "Hello",
       "body": app_id
     })
   });
   
-  exports.HelloResp = autoRecord (function (client_id) {
+  exports.HelloResponse = autoRecord (function (client_id) {
     this.load({
       "status": ST_SUCCESS,
       "type": "Hello",
@@ -33,14 +41,14 @@ var autoRecord = require("./autorecord").autoRecord;
 
   // Join - Listen for messages
 
-  exports.JoinReq = autoRecord (function (address) {
+  exports.JoinRequest = autoRecord (function (address) {
     this.load({
       "type": "Join",
       "body": address
     });
   });
 
-  exports.JoinResp = autoRecord (function () {
+  exports.JoinResponse = autoRecord (function () {
     this.load({
       "type": "Join",
       "status": ST_SUCCESS
@@ -49,7 +57,7 @@ var autoRecord = require("./autorecord").autoRecord;
 
   // Message - a message
 
-  exports.MessageReq = autoRecord (function (to, from, body) {
+  exports.MessageRequest = autoRecord (function (to, from, body) {
     this.load({
       "type": "Message",
       "to": to,
@@ -58,11 +66,28 @@ var autoRecord = require("./autorecord").autoRecord;
     });
   });
 
-  exports.MessageResp = autoRecord (function () {
+  exports.MessageResponse = autoRecord (function () {
     this.load({
       "type": "Message",
       "status": ST_SUCCESS
     });
   });
+
+  // convert raw json data into a fancier Javascript function with accessor
+  // methods and what not.
+
+  var req_constructors = {
+    "Hello"  : exports.HelloRequest,
+    "Message": exports.MessageRequest,
+    "Join"   : exports.JoinRequest
+  }
+
+  exports.constructRequest = function (data) {
+    var cons = req_constructors[data.type];
+    if (!cons) 
+      throw "Invalid request object" ;
+    else
+      return (new cons()).load(data)
+  };
 
 })(exports)
