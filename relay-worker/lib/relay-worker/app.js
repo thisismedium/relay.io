@@ -13,7 +13,6 @@ var apps = {
 };
 
 var server = net.createServer(function (raw_stream) {
-  raw_stream.setEncoding("binary");
   var stream = new SocketReStreamer(raw_stream);
   stream.on('data', function (data) {
     var json = JSON.parse(data);
