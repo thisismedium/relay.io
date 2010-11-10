@@ -1,8 +1,5 @@
 var api   = require("relay-core/api");
 
-
-var ApplicationSocketLink = require("./ApplicationSocketLink").ApplicationSocketLink;
-
 // Application ////////////////////////////////////////////////////////////
 
 function Application (appId) {
@@ -37,8 +34,8 @@ function Application (appId) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  function streamHandler (stream) {
-    var app_stream = new ApplicationSocketLink(stream);
+  function streamHandler (app_stream) {
+    app_stream.removeAllListeners("data");
     app_stream.on("data", function (data) {
       processRequest (data, app_stream);
     });
