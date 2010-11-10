@@ -94,19 +94,28 @@ function ApplicationSocketLink (stream) {
   this.writeRaw = function (json) {
     var bufA = new Buffer(Buffer.byteLength(json) + 2,'binary');
     var bufB = new Buffer(pack('n',Buffer.byteLength(json)),'binary');
-    bufB.copy(bufA,0,0)
+    bufB.copy(bufA,0,0);
     var bufC = new Buffer(json);
-    bufC.copy(bufA,2,0);
-    try {
-      stream.write(bufA);
-    } catch (e) { 
-      stream.end();
-      stream.destroy();
-    }
+    bufC.copy(bufA,2,0);    
+    doWrite(bufA);
   }
+
+  function doWrite (buf) {
+    // this does not seem to work at for some reason :(
+    if (stream.writeable !== false) {
+      try {
+        stream.write(buf);
+      } catch (e) {
+        
+      }
+    }      
+  }
+
+  
   
   passEvent("close", stream, this);
   passEvent("end", stream, this);
+  passEvent("error", stream, this);
   passEvent("connect", stream, this);
 
   this.end     = function () { stream.end() }

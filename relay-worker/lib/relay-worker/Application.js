@@ -1,5 +1,17 @@
 var api   = require("relay-core/api");
 
+function Client (client_id, stream) {
+  this.getClientId = function getClientId() {
+    return client_id;
+  };
+  this.getStream = function getString () {
+    return stream;
+  };
+  this.write = function write(data) {
+    return stream.write(data);
+  };
+}
+
 // Application ////////////////////////////////////////////////////////////
 
 function Application (appId) {
@@ -35,71 +47,117 @@ function Application (appId) {
   ////////////////////////////////////////////////////////////////////////
 
   function streamHandler (app_stream) {
-    var client_id = newClientId();
+    var client = new Client(newClientId(), app_stream);
+
     app_stream.removeAllListeners("data");
     app_stream.on("data", function (data) {
-      processRequest (data, client_id, app_stream);
+      processRequest (data, client);
     });
+
     app_stream.on("close", function () {
       app_stream.destroy();
     });
+
     app_stream.on("end", function () {
       app_stream.destroy();
     });
+
   };
   
   ////////////////////////////////////////////////////////////////////////
 
-  function processRequest(request, client_id, sender) {
+  function processRequest(request, client) {
     var calls = { 
+      
+      // When client says ____  do  ____.
+
+      // Client said "Hello", they are brand new to the world...
+
       "Hello" : function () {
-        sender.write(new api.HelloResponse(client_id))
-        joinRoute("@"+client_id, sender);
-        joinRoute("#global", sender);
-        sendToResource("#global", new api.MessageRequest("#global","@master","User @" + client_id + " has entered #global"));
+        
+        // Inform the client about their client_id.
+        client.write(new api.HelloResponse(client.getClientId()))
+
+        // Join the users private channel.
+        joinRoute("@"+client.getClientId(), client);
+
+        // Join the global control channel.
+        joinRoute("#global", client);
+
+        // Inform the global channel of the clients activation.
+        sendToRoute("#global", new api.MessageRequest("#global","@master","User @" + client.getClientId() + " has entered #global"));
+
       },
+
+      // Client said "Join", the client wants to join a channel to listen for updates
+
       "Join" : function () {
-        sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client_id + " has entered channel " + request.getBody()));
-        joinRoute(request.getBody(), sender);
-        sender.on("close", function () {
-          removeSubscriber(request.getBody(), sender);
-          sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client_id + " has left the channel " + request.getBody()));
-        });
-        sender.write(new api.JoinResponse());
+        if (joinRoute(request.getBody(), client)) {
+          // If the client is able to choin the channel (aka route) then inform everyone on that channel that they have entered.
+          sendToRoute(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
+
+          // Inform the client of a successful "Join".
+          client.write(new api.JoinResponse());
+        }
       },
+
+      // The client as sent us a "Message", we need to route it to the right users.
       "Message" : function () {
-        request.setFrom("@"+client_id)
-        sendToResource(request.getTo(), request)
-        sender.write(new api.MessageResponse());
+
+        // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
+        // user we tagged in incoming stream with.
+        request.setFrom("@"+client.getClientId())
+
+        process.nextTick (function () {
+
+          // Send the message to the proper channels.
+          sendToRoute(request.getTo(), request);
+
+          // Inform the client that their message has been delivered.
+          client.write(new api.MessageResponse());
+
+        });
+
       }
+
     }
-    console.log(request.dump());
     calls[request.getType()]();
   };
 
   ////////////////////////////////////////////////////////////////////////
 
-  function joinRoute (id, sender) {
-    addSubscriber (id, sender);
+  function joinRoute (id, client) {
+    addSubscriber (id, client);
+    // Set listener so that if the clients socket closes they are removed from the channel we just placed them in.
+    function remove () {
+      removeSubscriber(id, client);
+      sendToRoute(id, new api.MessageRequest(id, "@master","User @" + client.getClientId() + " has left the channel " + id));
+    }
+    // no funny stuff or you're gone.
+    client.getStream().on("close", remove);
+    client.getStream().on("end",   remove);
+    client.getStream().on("error", remove);
+
+    return true;
   }
 
-  function addSubscriber (resource, subscriber) {
+  function addSubscriber (resource, client) {
     if (routes[resource]) {
-      routes[resource].push(subscriber);
+      routes[resource].push(client);
       return true
     } else {
       routes[resource] = []
-      return addSubscriber(resource, subscriber);
+      return addSubscriber(resource, client);
     }
   };
 
-  function removeSubscriber (resource, subscriber) {
-    console.log("Removing subscriber");
+  function removeSubscriber (resource, client) {
+    console.log("Removing subscriber from " + resource);
     var out = [];
     var res = routes[resource];
     console.log(res.length);
     for (var i = 0; i < res.length; i++) {
-      if (res[i] != subscriber) out.push(res[i]);
+      if (res[i].getClientId() != client.getClientId()) out.push(res[i]);
     }
     routes[resource] = out;
     console.log(out.length);
@@ -108,10 +166,14 @@ function Application (appId) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  function sendToResource(resource, mesg) {
+  function sendToRoute(resource, mesg) {
+    var from = mesg.getFrom();
     if (routes[resource]) {
       routes[resource].forEach(function(subscriber) {
-        subscriber.write(mesg);
+        console.log("Sending message to client: " + subscriber.getClientId())
+        if (subscriber.getClientId() != from) {
+          subscriber.write(mesg);
+        }
       });
       return true;
     } else {
