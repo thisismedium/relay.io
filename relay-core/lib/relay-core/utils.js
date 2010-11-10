@@ -21,13 +21,9 @@ function ApplicationSocketLink (stream) {
 
   stream.on("data", function (buf) {
     function aux (buf) {
-      console.log("Got Data:");
-      console.log("\twaiting: " + waiting);
+      // console.log("Got Data:");
+      // console.log("\twaiting: " + waiting);
       if (lbits > 0) {
-        if (buf.length < 2) {
-          console.log("Buffer size: " + buf.length);
-         
-        }
         queue = "";
         for (var i = 0; lbits > 0 && i < buf.length; i++){
           waiting = waiting << 8;
@@ -37,13 +33,13 @@ function ApplicationSocketLink (stream) {
         buf = buf.slice(i,buf.length);
       }
       if (lbits == 0) {
-        console.log("\twaiting: " + waiting);
+        // console.log("\twaiting: " + waiting);
         var over = buf.length - waiting;
         var bufA = buf.slice(0, over > 0 ? waiting : buf.length);
 
         queue  += bufA.toString('utf8');
         waiting -= bufA.length;
-        console.log("\twaiting: " + waiting);
+        // console.log("\twaiting: " + waiting);
         if (waiting == 0) {
           lbits = LENGTH_HEADER_SIZE;
           try {
