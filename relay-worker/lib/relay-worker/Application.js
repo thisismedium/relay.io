@@ -62,8 +62,8 @@ function Application (appId) {
         sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client_id + " has entered channel " + request.getBody()));
         joinRoute(request.getBody(), sender);
         sender.on("close", function () {
-          removeSubscriber(request.getBody(), client_id, sender);
-          sendToResource(resource, new api.MessageRequest(resource, "@master","User @" + client_id + " has left the channel " + request.getBody()));
+          removeSubscriber(request.getBody(), sender);
+          sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client_id + " has left the channel " + request.getBody()));
         });
         sender.write(new api.JoinResponse());
       },

@@ -9,53 +9,81 @@ function passEvent(event, from, to) {
   });
 }
 
+function assert(pred, mesg) {
+  if (pred)
+    return true;
+  else
+    throw mesg
+}
+
 function ApplicationSocketLink (stream) {
 
   var self = this;
-  var LENGTH_HEADER_SIZE = 2;
-  var lbits = LENGTH_HEADER_SIZE;
-  var waiting = 0;
-  var queue = "";
+
+  var header_size = 2;
+
+  var header_bytes_read, header, waiting, queue, queue_written;
 
   stream.removeAllListeners("data");
 
-  stream.on("data", function (buf) {
-    function aux (buf) {
-      // console.log("Got Data:");
-      // console.log("\twaiting: " + waiting);
-      if (lbits > 0) {
-        queue = "";
-        for (var i = 0; lbits > 0 && i < buf.length; i++){
-          waiting = waiting << 8;
-          waiting = buf[i] | waiting;
-          lbits -= 1;
-        }
-        buf = buf.slice(i,buf.length);
-      }
-      if (lbits == 0) {
-        // console.log("\twaiting: " + waiting);
-        var over = buf.length - waiting;
-        var bufA = buf.slice(0, over > 0 ? waiting : buf.length);
+  function reset () {
+    header_bytes_read = 0;
+    header = new Buffer(header_size, 'binary');
+    waiting = 0;
+  };
 
-        queue  += bufA.toString('utf8');
-        waiting -= bufA.length;
-        // console.log("\twaiting: " + waiting);
+  reset();
+
+  stream.on("data", function (data) {
+    function aux (data) {
+
+      if (header_bytes_read < header_size) {
+        for (var i = 0; header_bytes_read < header_size && i < data.length; i++){
+          header[header_bytes_read] = data[i];
+          header_bytes_read += 1;          
+        }
+        data = data.slice(i,data.length);
+      }
+
+      if (header_bytes_read == header_size) {
+
         if (waiting == 0) {
-          lbits = LENGTH_HEADER_SIZE;
-          try {
-            var json = JSON.parse(queue);
-          } catch (e) {
-            console.log("Got invalid data: " + e + " in " + queue);
+          for (var i = 0; i < header_size; i++) {
+            waiting = waiting << 8;
+            waiting = header[i] | waiting;
           }
+          queue = new Buffer(waiting, 'binary');
+          queue_written = 0;
+        }
+
+        var over  = data.length - waiting;
+        var dataA = data.slice(0, over > 0 ? waiting : data.length);
+
+        dataA.copy(queue, queue_written, 0, dataA.length);
+        queue_written += dataA.length;
+        waiting       -= dataA.length;
+
+        if (waiting == 0) {
+  
+          try {
+            var json = JSON.parse(queue.toString('utf8'));
+          } catch (e) {
+            self.emit("error")
+          }
+          
           if (json) self.emit("data", api.constructRequest(json));
+          
+          reset();
+
           if (over > 0) {
-            var leftover = buf.slice(buf.length-over, buf.length);
+            var leftover = data.slice(data.length-over, data.length);
             if (leftover.length > 0) aux(leftover);
           }
+
         }
       }
     }
-    aux(buf);  
+    aux(data);  
   });
 
   this.write = function (obj) { 
