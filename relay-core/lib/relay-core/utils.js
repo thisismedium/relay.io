@@ -71,7 +71,7 @@ function ApplicationSocketLink (stream) {
             self.emit("error")
           }
           
-          if (json) self.emit("data", api.constructRequest(json));
+          if (json) self.emit("data", api.constructResponse(json));
           
           reset();
 
@@ -92,6 +92,7 @@ function ApplicationSocketLink (stream) {
   }
 
   this.writeRaw = function (json) {
+    // console.log("Writing: " + json);
     var bufA = new Buffer(Buffer.byteLength(json) + 2,'binary');
     var bufB = new Buffer(pack('n',Buffer.byteLength(json)),'binary');
     bufB.copy(bufA,0,0);
