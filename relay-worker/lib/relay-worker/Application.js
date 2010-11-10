@@ -35,9 +35,10 @@ function Application (appId) {
   ////////////////////////////////////////////////////////////////////////
 
   function streamHandler (app_stream) {
+    var client_id = newClientId();
     app_stream.removeAllListeners("data");
     app_stream.on("data", function (data) {
-      processRequest (data, app_stream);
+      processRequest (data, client_id, app_stream);
     });
     app_stream.on("close", function () {
       app_stream.destroy();
@@ -49,23 +50,25 @@ function Application (appId) {
   
   ////////////////////////////////////////////////////////////////////////
 
-  function processRequest(request, sender) {
+  function processRequest(request, client_id, sender) {
     var calls = { 
       "Hello" : function () {
-        var client_id = newClientId();
         sender.write(new api.HelloResponse(client_id))
         joinRoute("@"+client_id, sender);
         joinRoute("#global", sender);
         sendToResource("#global", new api.MessageRequest("#global","@master","User @" + client_id + " has entered #global"));
-        sender.client_id = client_id;
       },
       "Join" : function () {
-        sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + sender.client_id + " has entered channel " + request.getBody()));
+        sendToResource(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client_id + " has entered channel " + request.getBody()));
         joinRoute(request.getBody(), sender);
+        sender.on("close", function () {
+          removeSubscriber(request.getBody(), client_id, sender);
+          sendToResource(resource, new api.MessageRequest(resource, "@master","User @" + client_id + " has left the channel " + request.getBody()));
+        });
         sender.write(new api.JoinResponse());
       },
       "Message" : function () {
-        request.setFrom("@"+sender.client_id)
+        request.setFrom("@"+client_id)
         sendToResource(request.getTo(), request)
         sender.write(new api.MessageResponse());
       }
@@ -78,9 +81,6 @@ function Application (appId) {
 
   function joinRoute (id, sender) {
     addSubscriber (id, sender);
-    sender.on("close", function () {
-      removeSubscriber(id, sender);
-    });
   }
 
   function addSubscriber (resource, subscriber) {
@@ -103,7 +103,6 @@ function Application (appId) {
     }
     routes[resource] = out;
     console.log(out.length);
-    sendToResource(resource, new api.MessageRequest(resource, "@master","User @" + subscriber.client_id + " has left the channel " + resource));
   };
 
 

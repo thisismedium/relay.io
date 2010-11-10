@@ -12,41 +12,50 @@ function passEvent(event, from, to) {
 function ApplicationSocketLink (stream) {
 
   var self = this;
+  var LENGTH_HEADER_SIZE = 2;
+  var lbits = LENGTH_HEADER_SIZE;
   var waiting = 0;
-  var buffer = "";
+  var queue = "";
 
   stream.removeAllListeners("data");
 
   stream.on("data", function (buf) {
     function aux (buf) {
-
-      if (waiting == 0) {
-        buffer = "";
-        waiting = buf[0] | waiting;
-        waiting = waiting << 8;
-        waiting = buf[1] | waiting;
-        if (buf.length > 2)
-          buf = buf.slice(2,buf.length);
-        else
-          buf = new Buffer(0);
-      }
-
-      var over = buf.length - waiting;
-      var bufA = buf.slice(0, over > 0 ? waiting : buf.length);
-
-      buffer  += bufA.toString('utf8');
-      waiting -= bufA.length;
-
-      if (waiting == 0) {
-        try {
-          var json = JSON.parse(buffer);
-          self.emit("data", api.constructRequest(json));
-        } catch (e) {
-          console.log("Got invalid data");
+      console.log("Got Data:");
+      console.log("\twaiting: " + waiting);
+      if (lbits > 0) {
+        if (buf.length < 2) {
+          console.log("Buffer size: " + buf.length);
+         
         }
-        if (over > 0) {
-          var leftover = buf.slice(buf.length-over, buf.length);
-          if (leftover.length > 0) aux(leftover);
+        queue = "";
+        for (var i = 0; lbits > 0 && i < buf.length; i++){
+          waiting = waiting << 8;
+          waiting = buf[i] | waiting;
+          lbits -= 1;
+        }
+        buf = buf.slice(i,buf.length);
+      }
+      if (lbits == 0) {
+        console.log("\twaiting: " + waiting);
+        var over = buf.length - waiting;
+        var bufA = buf.slice(0, over > 0 ? waiting : buf.length);
+
+        queue  += bufA.toString('utf8');
+        waiting -= bufA.length;
+        console.log("\twaiting: " + waiting);
+        if (waiting == 0) {
+          lbits = LENGTH_HEADER_SIZE;
+          try {
+            var json = JSON.parse(queue);
+          } catch (e) {
+            console.log("Got invalid data: " + e + " in " + queue);
+          }
+          if (json) self.emit("data", api.constructRequest(json));
+          if (over > 0) {
+            var leftover = buf.slice(buf.length-over, buf.length);
+            if (leftover.length > 0) aux(leftover);
+          }
         }
       }
     }
@@ -64,8 +73,12 @@ function ApplicationSocketLink (stream) {
     bufB.copy(bufA,0,0)
     var bufC = new Buffer(json);
     bufC.copy(bufA,2,0);
-
-    stream.write(bufA);
+    try {
+      stream.write(bufA);
+    } catch (e) { 
+      stream.end();
+      stream.destroy();
+    }
   }
   
   passEvent("close", stream, this);
