@@ -4,7 +4,8 @@ var ApplicationSocketLink = require("relay-core/utils").ApplicationSocketLink;
 
 var sock = net.createConnection(8124,"localhost");
 
-var connection = new ApplicationSocketLink(sock);
+var master_connection = new ApplicationSocketLink(sock);
+var connection = master_connection.newChannel();
 var client_id = "";
 connection.on("data", function(data) {
   try {

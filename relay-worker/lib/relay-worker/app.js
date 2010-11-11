@@ -11,18 +11,20 @@ var apps = {
 };
 
 var server = net.createServer(function (raw_stream) {
-  var stream = new ApplicationSocketLink(raw_stream);
-  stream.on('data', function (obj) {
-    if (obj.getType() == "Hello") {
-      if (!apps[obj.getBody()]) {
-        stream.write(new api.InvalidApplicationError());
+  var app_stream = new ApplicationSocketLink(raw_stream);
+  app_stream.on("channel", function (stream) {
+    stream.on('data', function (obj) {
+      if (obj.getType() == "Hello") {
+        if (!apps[obj.getBody()]) {
+          stream.write(new api.InvalidApplicationError());
+        } else {
+          apps[obj.getBody()].assumeStream(stream);
+          stream.emit("data", obj);
+        }
       } else {
-        apps[obj.getBody()].assumeStream(stream);
-        stream.emit("data", obj);
+        stream.close();
       }
-    } else {
-      stream.close();
-    }
+    });
   });
 });
 
