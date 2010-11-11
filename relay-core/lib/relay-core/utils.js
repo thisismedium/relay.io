@@ -16,54 +16,17 @@ function assert(pred, mesg) {
     throw mesg
 }
 
-function SocketChannel (id, stream) {
-
-  var self = this;
-
-  this.getId = function () { return id }
-
-  this.destroy = function () { };
-
-  this.write = function (obj) { 
-    var json = JSON.stringify(obj.dump())
-    self.writeRaw(json)
-  }
-
-  this.writeRaw = function (json) {
-    console.log("Channel: " + id + " Writing: " + json);
-    var bufA = new Buffer(Buffer.byteLength(json) + 4,'binary');
-    var bufB = new Buffer(pack('nn',id,Buffer.byteLength(json)),'binary');
-    bufB.copy(bufA,0,0);
-    var bufC = new Buffer(json);
-    bufC.copy(bufA,4,0);    
-    doWrite(bufA);
-  }
-
-  function doWrite (buf) {
-    // this does not seem to work at for some reason :(
-    if (stream.writeable !== false) {
-      try {
-        stream.write(buf);
-      } catch (e) {
-        
-      }
-    }      
-  }
-
-};
-
-SocketChannel.prototype = event.EventEmitter.prototype;
-
 function ApplicationSocketLink (stream) {
 
   var self = this;
-
-  var current_channel = 48;
 
   var channels = {};
 
   var chan_id_header_size   = 2;
   var mesg_size_header_size = 2;
+
+  var max_channel_id = 1 << (8 * chan_id_header_size);
+
   var header_size  = chan_id_header_size + mesg_size_header_size;
 
   var header_bytes_read, header, waiting, queue, queue_written, chan_id;
@@ -80,7 +43,6 @@ function ApplicationSocketLink (stream) {
   reset();
 
   stream.on("data", function (data) {
-    console.log(data.toString('utf8'));
     function aux (data) {
 
       if (header_bytes_read < header_size) {
@@ -104,7 +66,6 @@ function ApplicationSocketLink (stream) {
             waiting = waiting << 8;
             waiting = header[i] | waiting;
           }
-          console.log(waiting);
           queue = new Buffer(waiting, 'binary');
           queue_written = 0;
         }
@@ -115,21 +76,17 @@ function ApplicationSocketLink (stream) {
         dataA.copy(queue, queue_written, 0, dataA.length);
         queue_written += dataA.length;
         waiting       -= dataA.length;
-        console.log(waiting);
         if (waiting == 0) {
   
           try {
             var json = JSON.parse(queue.toString('utf8'));
           } catch (e) {
-            console.log(queue.toString('utf8'));
             self.emit("error")
-          }
+              }
 
           var chan = channels[chan_id];
           if (chan == undefined) {
-            console.log("Creating new channel: " + chan_id);
-            if (chan_id > current_channel) current_channel = chan_id;
-            chan = new SocketChannel(chan_id, stream);
+            chan = new SocketChannel(chan_id);
             self.emit("channel", chan);
             channels[chan_id] = chan;
           }
@@ -158,11 +115,25 @@ function ApplicationSocketLink (stream) {
     }
   };
 
+  function getNewChannelId () {
+    for (var i = 0; i < max_channel_id; i++) {
+      if (!(i in channels)) {
+        return i;
+      }
+    }
+  }
+  
   this.newChannel = function () {
-    current_channel += 1;
-    var chan = new SocketChannel(current_channel, stream);
-    channels[current_channel] = chan;
+    var nid = getNewChannelId();
+    console.log("Creating channel " + nid);
+    var chan = new SocketChannel(nid);
+    channels[nid] = chan;
     return chan;
+  };
+
+  function removeChannel (id) {
+    if (id in channels) 
+      delete channels[id];
   };
 
   stream.on("close",function(){ emitToAllChannels ("close") });
@@ -173,6 +144,48 @@ function ApplicationSocketLink (stream) {
 
   this.end     = function () { stream.end() }
   this.destroy = function () { stream.destroy() }
+
+  ////////////////////////////////////////////////////////////////////////
+
+  function SocketChannel (id) {
+
+    var self = this;
+
+    this.getId = function () { return id }
+
+    this.end = this.destroy = function () { 
+      removeChannel(id);
+    };
+
+
+
+    this.write = function (obj) { 
+      var json = JSON.stringify(obj.dump())
+      self.writeRaw(json)
+    }
+
+    this.writeRaw = function (json) {
+      var bufA = new Buffer(Buffer.byteLength(json) + header_size,'binary');
+      var bufB = new Buffer(pack('nn',id,Buffer.byteLength(json)),'binary');
+      bufB.copy(bufA,0,0);
+      var bufC = new Buffer(json);
+      bufC.copy(bufA,header_size,0);    
+      doWrite(bufA);
+    }
+
+    function doWrite (buf) {
+      // this does not seem to work at for some reason :(
+      if (stream.writeable !== false) {
+        try {
+          stream.write(buf);
+        } catch (e) {
+        
+        }
+      }      
+    }
+
+  };
+  SocketChannel.prototype = event.EventEmitter.prototype;
 
 };
 ApplicationSocketLink.prototype = event.EventEmitter.prototype;
