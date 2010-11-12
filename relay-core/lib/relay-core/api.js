@@ -1,4 +1,4 @@
-var autoRecord = require("./autorecord").autoRecord;
+var autoRecord = require("./utils/autorecord").autoRecord;
 
 /*
   Status Codes: 

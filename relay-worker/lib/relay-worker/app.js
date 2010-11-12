@@ -1,7 +1,7 @@
 var Application = require("./Application").Application;
 var Subscriber  = require("./Subscriber");
 
-var ApplicationSocketLink = require("relay-core/utils").ApplicationSocketLink;
+var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 
 var api = require("relay-core/api");
 var net = require("net");

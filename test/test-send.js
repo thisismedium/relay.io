@@ -1,4 +1,4 @@
-var ApplicationSocketLink = require("relay-core/utils").ApplicationSocketLink;
+var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 var net = require("net");
 
 var master_connection = new ApplicationSocketLink(net.createConnection(8124,"localhost"));

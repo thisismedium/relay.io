@@ -1,34 +1,17 @@
-var pack   = require("./pack").pack;
+var pack   = require("./utils/pack").pack;
 var Buffer = require("buffer").Buffer;
 var event  = require("events");
 var api    = require("./api");
 
-function passEvent(event, from, to) {
-  from.on(event,function() { 
-    to.emit(event, arguments);
-  });
-}
-
-function assert(pred, mesg) {
-  if (pred)
-    return true;
-  else
-    throw mesg
-}
-
 function ApplicationSocketLink (stream) {
 
   var self = this;
-
   var channels = {};
-
   var chan_id_header_size   = 2;
   var mesg_size_header_size = 2;
 
   var max_channel_id = 1 << (8 * chan_id_header_size);
-
   var header_size  = chan_id_header_size + mesg_size_header_size;
-
   var header_bytes_read, header, waiting, queue, queue_written, chan_id;
 
   stream.removeAllListeners("data");
