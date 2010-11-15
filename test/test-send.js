@@ -8,7 +8,7 @@ var connection2 = master_connection.newChannel();
 
 connection.on("data", function(data) {
   if (data.getType() == "Hello") {
-    setInterval(function () { connection.writeRaw(JSON.stringify({"type": "Message",
+    setTimeout(function () { connection.writeRaw(JSON.stringify({"type": "Message",
                                                                   "to"  : "#" + process.argv[2],
                                                                   "from": "@me",
                                                                   "body": "Hello World: " + Math.random(0,1)})) 
@@ -20,7 +20,7 @@ connection.on("data", function(data) {
 
 connection2.on("data", function(data) {
   if (data.getType() == "Hello") {
-    setInterval(function () { connection2.writeRaw(JSON.stringify({"type": "Message",
+    setTimeout(function () { connection2.writeRaw(JSON.stringify({"type": "Message",
                                                                   "to"  : "#" + process.argv[3],
                                                                   "from": "@me",
                                                                   "body": "BLARG!!!: " + Math.random(0,1)})) 

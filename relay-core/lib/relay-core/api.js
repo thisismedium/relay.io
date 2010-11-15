@@ -69,10 +69,11 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
   // Join - Listen for messages
 
-  exports.JoinRequest = autoRecord (function (address) {
+  exports.JoinRequest = autoRecord (function (address, keys) {
     this.load({
       "type": "Join",
-      "body": address
+      "body": address,
+      "keys": keys
     });
   });
 

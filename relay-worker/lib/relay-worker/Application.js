@@ -1,5 +1,5 @@
 var api   = require("relay-core/api");
-
+var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket
 // Route (a.k.a Channel) ///////////////////////
 
 function Route (name) {
@@ -27,11 +27,17 @@ function Route (name) {
     console.log(out.length);
   };
   this.write = function write (mesg) {
-    subscribers.forEach(function(subscriber) {
-      console.log("Sending message to client: " + subscriber.getClientId())
-        if ("@" + subscriber.getClientId() != mesg.getFrom()) {
-          subscriber.write(mesg);
-        }
+    console.log("SUBSCRIBERS: " + subscribers.map(function(s){ return s.getStream() }));
+    var streams = subscribers.map(function (s) { return s.getStream() });
+    var socks = groupChannelsBySocket(streams);
+    // console.log(socks);
+    socks.forEach(function(sub) {
+      console.log("MULTI WRITE TO: " + sub);
+      var subscriber = sub[0];
+      //console.log("Sending message to client: " + subscriber.getClientId());
+      //if ("@" + subscriber.getClientId() != mesg.getFrom()) {
+        subscriber.multiWrite(sub, mesg);
+      //}
     });
   }
 };
@@ -54,6 +60,9 @@ function Client (client_id, stream, perms) {
   this.getStream = function getString () {
     return stream;
   };
+  this.getSocket = function getSocket () {
+    return stream.getSocket();
+  };
   this.write = function write(data) {
     return stream.write(data);
   };
@@ -61,7 +70,9 @@ function Client (client_id, stream, perms) {
 
 // Application ////////////////////////////////////////////////////////////
 
-function Application (appId) {
+function Application (appId, keys) {
+
+  if (keys == undefined) keys = {};
 
   this.getAppId = function () { 
     return appId 

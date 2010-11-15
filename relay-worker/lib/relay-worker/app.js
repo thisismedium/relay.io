@@ -7,7 +7,7 @@ var api = require("relay-core/api");
 var net = require("net");
 
 var apps = {
-  "test": new Application("test")
+  "test": new Application("test", [])
 };
 
 var server = net.createServer(function (raw_stream) {
