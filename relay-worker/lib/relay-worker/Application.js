@@ -1,5 +1,7 @@
-var api   = require("relay-core/api");
-var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket
+var api = require("relay-core/api");
+var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket;
+var Key = require("./Key").Key;
+
 // Route (a.k.a Channel) ///////////////////////
 
 function Route (name) {
@@ -27,17 +29,9 @@ function Route (name) {
     console.log(out.length);
   };
   this.write = function write (mesg) {
-    console.log("SUBSCRIBERS: " + subscribers.map(function(s){ return s.getStream() }));
     var streams = subscribers.map(function (s) { return s.getStream() });
-    var socks = groupChannelsBySocket(streams);
-    // console.log(socks);
-    socks.forEach(function(sub) {
-      console.log("MULTI WRITE TO: " + sub);
-      var subscriber = sub[0];
-      //console.log("Sending message to client: " + subscriber.getClientId());
-      //if ("@" + subscriber.getClientId() != mesg.getFrom()) {
-        subscriber.multiWrite(sub, mesg);
-      //}
+    groupChannelsBySocket(streams).forEach(function(sub) {
+      sub[0].multiWrite(sub, mesg);
     });
   }
 };
@@ -46,13 +40,18 @@ function Route (name) {
 
 function Client (client_id, stream, perms) {
   this.canWrite = function canWrite () {
+    console.log("WRITE: " + api.PERM_WRITE & perms);
     return api.PERM_WRITE & perms
   };
   this.canRead = function canRead () {
     return api.PERM_READ & perms
   };
+  this.resetPerms = function resetPerms () {
+    perms = 0;
+  };
   this.setPerms = function setPerms (p) {
-    perms = p
+    console.log("Adding perms: " + p);
+    perms = p | perms;
   };
   this.getClientId = function getClientId() {
     return client_id;
@@ -72,7 +71,7 @@ function Client (client_id, stream, perms) {
 
 function Application (appId, keys) {
 
-  if (keys == undefined) keys = {};
+  if (keys == undefined) keys = [];
 
   this.getAppId = function () { 
     return appId 
@@ -118,6 +117,15 @@ function Application (appId, keys) {
     });
 
   };
+
+  function getKeyByHash (hash) {
+    for (var i = 0; i < keys.length; i++) {
+      if (keys[i].getHash() === hash) {
+        return keys[i];
+      }
+    }
+    return undefined;
+  };
   
   ////////////////////////////////////////////////////////////////////////
 
@@ -130,10 +138,17 @@ function Application (appId, keys) {
 
       "Hello" : function () {
 
-        client.setPerms(api.PERM_READ | api.PERM_WRITE);
+        if (request.getKeys()) {
+          request.getKeys().forEach(function(key){
+            var real_key = getKeyByHash(key);
+            if (real_key) {
+              client.setPerms(real_key.getPerms());
+            }
+          });
+        }
 
         // Inform the client about their client_id.
-        client.write(new api.HelloResponse(client.getClientId()))
+        client.write(new api.Welcome(client.getClientId()))
 
         // Join the users private channel.
         joinRoute("@"+client.getClientId(), client);
@@ -142,7 +157,9 @@ function Application (appId, keys) {
         joinRoute("#global", client);
 
         // Inform the global channel of the clients activation.
-        sendToRoute("#global", new api.MessageRequest("#global","@master","User @" + client.getClientId() + " has entered #global"));
+        sendToRoute("#global", new api.Message("#global",
+                                               "@master",
+                                               "User @" + client.getClientId() + " has entered #global"));
 
       },
 
@@ -151,10 +168,10 @@ function Application (appId, keys) {
       "Join" : function () {
         if (client.canRead() && joinRoute(request.getBody(), client)) {
           // If the client is able to choin the channel (aka route) then inform everyone on that channel that they have entered.
-          sendToRoute(request.getBody(), new api.MessageRequest(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
+          sendToRoute(request.getBody(), new api.Message(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
 
           // Inform the client of a successful "Join".
-          client.write(new api.JoinResponse());
+          client.write(new api.Enter());
         } else {
           client.write(new api.PermissionDeniedError());
         }
@@ -191,7 +208,7 @@ function Application (appId, keys) {
     // Set listener so that if the clients socket closes they are removed from the channel we just placed them in.
     function remove () {
       removeSubscriber(id, client);
-      sendToRoute(id, new api.MessageRequest(id, "@master","User @" + client.getClientId() + " has left the channel " + id));
+      sendToRoute(id, new api.Message(id, "@master","User @" + client.getClientId() + " has left the channel " + id));
     }
     // no funny stuff or you're gone.
     client.getStream().on("close", remove);

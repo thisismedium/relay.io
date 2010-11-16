@@ -1,6 +1,48 @@
 var autoRecord = require("./utils/autorecord").autoRecord;
 
 /*
+  Messages are building blocks of a good conversation, the following is how 
+  the client converses with the server.  Certain parts of the converstation 
+  have different meanings based upon if the member is a server or client.
+
+  Starting a session
+  -------------------
+
+  To start a session a client must great the server with the upmost politeness.  
+  If the client wishes to do anything at all it must present keys.
+
+  Client says: Hello <application> {I have} <[keys: key]>
+
+  Server says: (Hello | Welcome) <client_id>
+             | Error "Permission Denied"
+             | Error "Invalid Keys"
+
+  Joining a channel
+  -----------------
+
+  Client says: Join <channel> 
+
+  Server says: (Join | Enter)
+             | Error "Permission Denied"
+
+  Recieving a Message
+  -------------------
+  
+  Client says: (nothing after a Join)
+  
+  Server says: Message to: <client|channel> from: <client|channel> {with the} <message_body>
+
+  Sending a Message
+  -----------------
+
+  Client says: Message to: <client|channel> from: <client> {with the} <message_body>
+
+  Server says: MessageAccepted
+
+*/
+
+
+/*
   Status Codes: 
 
      2__: Success
@@ -52,24 +94,37 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
   // Hello - Initialize a connection
 
-  exports.HelloRequest = autoRecord (function(app_id) {
+  exports.Hello = autoRecord (function(app_id, keys) {
     this.load({
       "type": "Hello",
-      "body": app_id
-    })
+      "body": app_id,
+      "keys": keys
+    });
+    this.getKeys = function () {
+      if (this._data_.keys) {
+        return this._data_.keys;
+      } else {
+        return undefined;
+      }
+    }
   });
   
-  exports.HelloResponse = autoRecord (function (client_id) {
+  exports.Welcome = autoRecord (function (client_id) {
     this.load({
       "status": ST_SUCCESS,
-      "type": "Hello",
+      "type": "Welcome",
       "body": client_id
     });
+
+    this.getClientId = function () {
+      return this.getBody();
+    }
+    
   });
 
   // Join - Listen for messages
 
-  exports.JoinRequest = autoRecord (function (address, keys) {
+  exports.Join = autoRecord (function (address, keys) {
     this.load({
       "type": "Join",
       "body": address,
@@ -77,16 +132,16 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     });
   });
 
-  exports.JoinResponse = autoRecord (function () {
+  exports.Enter = autoRecord (function () {
     this.load({
-      "type": "Join",
+      "type": "Enter",
       "status": ST_SUCCESS
     });
   });
 
   // Message - a message
 
-  exports.MessageRequest = autoRecord (function (to, from, body) {
+  exports.Message = autoRecord (function (to, from, body) {
     this.load({
       "type": "Message",
       "to": to,
@@ -94,8 +149,6 @@ var autoRecord = require("./utils/autorecord").autoRecord;
       "body": body
     });
   });
-
-  exports.MessageResponse = exports.MessageRequest;
 
   exports.MessageAccepted = autoRecord(function() {
     this.load({"type": "MessageAccepted"});
@@ -111,7 +164,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
   // convert raw json data into a fancier Javascript function with accessor
   // methods and what not.
 
-  exports.ErrorResponse = function () {
+  exports.Error = function () {
     this.load = function (json) {
       var error_constructors = {
         ST_INVALID_APP:       exports.InvalidApplicationError,
@@ -122,20 +175,27 @@ var autoRecord = require("./utils/autorecord").autoRecord;
       this = er;
     };
   };
-  exports.ErrorResponse = autoRecord();
+  exports.Error = autoRecord();
 
-  var resp_constructors = {
-    "Hello"  : exports.HelloResponse,
-    "Message": exports.MessageResponse,
+  var mesg_constructors = {
+
+    "Hello"  : exports.Hello,
+    "Welcome": exports.Welcome,
+
+    "Join"   : exports.Join,
+    "Enter"  : exports.Enter,
+
+    "Message": exports.Message,
     "MessageAccepted": exports.MessageAccepted,
-    "Join"   : exports.JoinResponse,
-    "Error"  : exports.ErrorResponse
+
+    "Error"  : exports.Error
+
   }
 
-  exports.constructResponse = function (data) {
-    var cons = resp_constructors[data.type];
+  exports.constructMessage = function (data) {
+    var cons = mesg_constructors[data.type];
     if (!cons) 
-      throw "Invalid response object" ;
+      throw "Invalid response object '" + data.type + "'";
     else
       return (new cons()).load(data)
   };

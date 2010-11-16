@@ -1,50 +1,42 @@
+var network = require("relay-core/network");
+var api     = require("relay-core/api");
+var net     = require("net");
+var event   = require("events");
 
-var net = require("net");
-var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
+function Client (socket_link, application, keys, channels) {
 
-var sock = net.createConnection(8124,"localhost");
+  var self = this;
+  var stream = socket_link.newChannel();
 
-var master_connection = new ApplicationSocketLink(sock);
-var connection  = master_connection.newChannel();
-var connection2 = master_connection.newChannel();
-var client_id = "";
+  var clientId;
 
-var x = 0;
-function dataHandler(conn,join){
-  var z = x + 1;
-  x += 1;
-  return function(data){
-    try {
-      if (data.getType() == "Hello") {
-        client_id = data.getBody();
-        conn.writeRaw(JSON.stringify({"type": "Join",
-                                            "body": "#" + join}));
-      }
-      if (data.getType() == "Message" && data.getFrom() != "@master" && data.getFrom() != client_id && data.getFrom() != undefined) {
-        // setTimeout(function () { conn.writeRaw(JSON.stringify({"type": "Message",
-        //                                                              "to"  : data.getFrom(),
-        //                                                              "body": "Dear friend, thank you so much for the message!"}));
-        // }, 1);
-        console.log("CLIENT " + z);
-        console.log(data.dump()); 
-      }
+  stream.write(new api.Hello(application, keys));
 
-    } catch (er) {
-      console.log("Bad Message: " + er + "\n in messages:" + data.dump());
-    }
+  stream.on("data", function (data) {
+    console.log(data.dump());
+    self.emit(data.getType(), data);
+  });
+
+  self.on("Welcome", function(data){
+    clientId = data.getClientId();
+    channels.forEach(function (chan) {
+      var joins = socket_link.newChannel();
+      joins.write(new api.Join(chan));
+    });
+  });
+
+  self.on("Message", function(data){
+    console.log(data.dump());
+  });
+
+  this.getClientId = function () {
+    return clientId;
   }
-}
 
 
-connection.on("data", dataHandler(connection, [process.argv[2]]));
-connection2.on("data", dataHandler(connection2, [process.argv[3]]));
+};
+Client.prototype = event.EventEmitter.prototype
 
-connection.on("connect", function(){
-  connection.writeRaw(JSON.stringify({"type":"Hello",
-                                      "body":"test"})); 
-});
+var sock = net.createConnection(8124, "localhost");
 
-connection2.on("connect", function(){
-  connection2.writeRaw(JSON.stringify({"type":"Hello",
-                                       "body":"test"})); 
-});
+client = new Client(new network.ApplicationSocketLink(sock), "test", ["read_key"], ["#medium","#message","#test"]);

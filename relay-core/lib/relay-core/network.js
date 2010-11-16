@@ -14,29 +14,33 @@ function debug (st) {
   ApplicataionSocketLink has the job of organizing a socket into multiple sessions
   a session is reffered to as channel.  The idea is that we should be able to divide
   a socket into several channels and work with these channels as if they where simply
-  plain sockets; the job of send message from the socket to the right clients is left
+  plain sockets; the job of sending message from the socket to the right clients is left
   up to the ApplicationSocketLink.  
 
   Multisession sockets are useful in relay because an http proxy might have a many clients 
   but only needs one socket open to the backend proccess.  The ApplicationSocketLink also
   has the important quality of being able to send a single message to many channels at once.
-  This should prevent the backend from having to send the same message more then once. The 
+  This should prevent the backend from having to send the same message more than once. The 
   downside is that workers must organize the virtual sockets its handling specifically to 
-  take advantage of the many to one socket, this module provides some useful utility functions
+  take advantage of the many to one transfer, this module provides some useful utility functions
   to make this easier namely 'groupChannelsBySocket'.
 
  */
 function ApplicationSocketLink (stream) {
 
+  var MODE_MESG = 1;
+  var MODE_END  = 2;
+
   var self = this;
   var channels = {};
+  var mode_header_width = 1;
   var chan_list_header_width = 2;
   var chan_id_width   = 2;
   var mesg_length_header_width = 2;
 
   var max_channel_id = 1 << (8 * chan_id_width);
   var header_size  = chan_list_header_width + mesg_length_header_width;
-  var header_bytes_read, header, waiting, queue, queue_written, chan_id, number_of_channels;
+  var header_bytes_read, header, waiting, queue, queue_written, chan_id, number_of_channels, mode;
 
   stream.removeAllListeners("data");
 
@@ -45,6 +49,8 @@ function ApplicationSocketLink (stream) {
     header = new Buffer(header_size, 'binary');
     waiting = 0;
     number_of_channels = 0;
+    mode = undefined;
+    gotoMode(getModeReader);
   };
 
   reset();
@@ -63,120 +69,131 @@ function ApplicationSocketLink (stream) {
   after the header so to break it down it looks a bit like this...
 
   -----------------------------
-  read 4 bytes
-  A = parse channel list size
-  B = parse message size
-  Y = (A * 2) + B
-  read Y bytes
+  read 1 byte (the mode byte)
+  |
+  ` read 4 bytes
+    A = parse channel list size
+    B = parse message size
+    Y = (A * 2) + B
+    read Y bytes
   ----------------------------
 
   */
 
-  stream.on("data", function (data) {
-    function aux (data) {
+  function gotoMode (mode, data) {
+    console.log(mode);
+    stream.removeAllListeners("data");
+    stream.on("data", mode);
+    if (data) stream.emit("data", data);
+  };
 
-      // we need to have all of the header data available 
-      // before we proceed.
+  function getModeReader (data) {
+    var cbs = {};
+    cbs[MODE_MESG] = mesgModeReader;
+    cbs[MODE_END]  = endModeReader;
+    var mode = data[0];
+    debug("Mode is: " + mode);
+    gotoMode(cbs[mode], data.slice(1, data.length));
+  };
 
+  function endModeReader (data) {
+    // gotoMode(mesgHeaderReader(function () {
+      
+
+    //   }),data)
+  };
+
+  function mesgHeaderReader(next) {
+    return function (data) {
       if (header_bytes_read < header_size) {
-        debug("Reading headers");
         for (var i = 0; header_bytes_read < header_size && i < data.length; i++){
           header[header_bytes_read] = data[i];
           header_bytes_read += 1;          
         }
         data = data.slice(i,data.length);
-      }
-
-
+      } 
       if (header_bytes_read == header_size) {
-
-        // at this point we should have read all the bytes needed
-        // to parse the packet header....
-
-        if (waiting == 0) {
-
-          // for (var i = 0; i < chan_id_width; i++) {
-          //   chan_id = chan_id << 8;
-          //   chan_id = header[i] | chan_id;
-          // }
-          debug("Parsing headers");
-          for (var i = 0; i < chan_list_header_width; i++) {
-            number_of_channels = number_of_channels << 8;
-            number_of_channels = header[i] | number_of_channels;
-          }
-          for (; i < chan_list_header_width + mesg_length_header_width; i++) {
-            waiting = waiting << 8;
-            waiting = header[i] | waiting;
-          }
-          debug("The message size is: " + waiting);
-          waiting += (number_of_channels * chan_id_width);
-          debug("Number of channels: " + number_of_channels);
-          debug("Waiting for: " + waiting);
-          queue = new Buffer(waiting, 'binary');
-          queue_written = 0;
+        for (var i = 0; i < chan_list_header_width; i++) {
+          number_of_channels = number_of_channels << 8;
+          number_of_channels = header[i] | number_of_channels;
         }
-
-        // We now know how much data we are waiting for, so let read it in
-        // and copy it into a new buffer.
-
-        var over  = data.length - waiting;
-        var dataA = data.slice(0, over > 0 ? waiting : data.length);
-
-        dataA.copy(queue, queue_written, 0, dataA.length);
-        queue_written += dataA.length;
-        waiting       -= dataA.length;
-
-        debug("Still waiting for: " + waiting);
-
-        if (waiting == 0) {
-          debug("Done waiting");
-          debug(queue.toString());
-          // we need to parse out our channel list:
-          var chan_list = [];
-          for (var i = 0; i < number_of_channels; i++) {
-            debug("Parsing");
-            var n_chan = 0;
-            n_chan = queue[i * chan_id_width] | n_chan;
-            n_chan = n_chan << 8;
-            n_chan = queue[(i * chan_id_width) + 1] | n_chan;
-            chan_list.push(n_chan)
-          }
-
-          debug(chan_list);
-          queue = queue.slice(i * chan_id_width, queue.length);
-          
-          debug(queue.toString());
-          
-          try {
-            var json = JSON.parse(queue.toString('utf8'));
-          } catch (e) {
-            self.emit("error");
-          }
-
-          chan_list.forEach(function(chan_id) {
-            var chan = channels[chan_id];
-            if (chan == undefined) {
-              chan = new SocketChannel(chan_id);
-              self.emit("channel", chan);
-              channels[chan_id] = chan;
-            }
-            process.nextTick(function() {
-              if (json) chan.emit("data", api.constructResponse(json));
-            });
-          });
-          
-          reset();
-
-          if (over > 0) {
-            var leftover = data.slice(data.length-over, data.length);
-            if (leftover.length > 0) aux(leftover);
-          }
-
+        for (; i < chan_list_header_width + mesg_length_header_width; i++) {
+          waiting = waiting << 8;
+          waiting = header[i] | waiting;
         }
+        waiting += (number_of_channels * chan_id_width);
+        queue = new Buffer(waiting, 'binary');
+        queue_written = 0;
+        gotoMode(next, data);     
       }
     }
-    aux(data);  
-  });
+  }
+
+  function mesgModeReader (data) {
+    debug("Reading a message");
+
+    // we need to have all of the header data available 
+    // before we proceed.
+
+    gotoMode(mesgHeaderReader(function (data) {
+
+      debug("Waiting for: " + waiting);
+
+      // We now know how much data we are waiting for, so let read it in
+      // and copy it into a new buffer.
+
+      var over  = data.length - waiting;
+      var dataA = data.slice(0, over > 0 ? waiting : data.length);
+
+      dataA.copy(queue, queue_written, 0, dataA.length);
+      queue_written += dataA.length;
+      waiting       -= dataA.length;
+
+      debug("Waiting for: " + waiting);
+      debug("queue: " + queue.toString());
+      if (waiting == 0) {
+        debug("Done waiting");
+        // we need to parse out our channel list:
+        var chan_list = [];
+        for (var i = 0; i < number_of_channels; i++) {
+          var n_chan = 0;
+          for (var k = (i * chan_id_width); k < (i * chan_id_width) + chan_id_width; k++) {
+            n_chan = n_chan << 8;
+            n_chan = queue[k] | n_chan;
+          }
+          chan_list.push(n_chan)
+            }
+
+        queue = queue.slice(i * chan_id_width, queue.length);
+          
+        try {
+          var json = JSON.parse(queue.toString('utf8'));
+        } catch (e) {
+          self.emit("error");
+        }
+
+        chan_list.forEach(function(chan_id) {
+          var chan = channels[chan_id];
+          if (chan == undefined) {
+            chan = new SocketChannel(chan_id);
+            self.emit("channel", chan);
+            channels[chan_id] = chan;
+          }
+          process.nextTick(function() {
+            if (json) chan.emit("data", api.constructMessage(json));
+          });
+        });
+          
+        reset();
+
+        if (over > 0) {
+          var leftover = data.slice(data.length-over, data.length);
+          if (leftover.length > 0) self.emit("data", leftover);
+        }
+      }
+    }), data);
+             
+  };
 
   function emitToAllChannels (signal) {
     for (channel in channels) {
@@ -196,7 +213,6 @@ function ApplicationSocketLink (stream) {
   
   this.newChannel = function () {
     var nid = getNewChannelId();
-    debug("Creating channel " + nid);
     var chan = new SocketChannel(nid);
     channels[nid] = chan;
     return chan;
@@ -246,36 +262,29 @@ function ApplicationSocketLink (stream) {
     this.writeRaw = function (str) { self._write([this], str); }
 
     this._write = function (chans, json) {
-      debug("WRITING TO " + chans.length + " CHANNELS");
-      var bufA = new Buffer(Buffer.byteLength(json) + header_size + (chan_id_width * chans.length),'binary');
-      var bufB = new Buffer(pack('nn',chans.length, Buffer.byteLength(json)),'binary');
-      debug("HEADER: ");
-      debug(bufB);
+
+      var bufA = new Buffer(Buffer.byteLength(json) + mode_header_width + header_size + (chan_id_width * chans.length),'binary');
+
+      var bufB = new Buffer(pack('Cnn', MODE_MESG, chans.length, Buffer.byteLength(json)),'binary');
       bufB.copy(bufA,0,0);
 
       var bufD = new Buffer(chans.length * chan_id_width, 'binary');
       for (var i = 0; i < chans.length; i++) {
-        debug("CHAN ID IS: " + chans[i].getId());
         (new Buffer(pack('n', chans[i].getId()), 'binary')).copy(bufD, i * chan_id_width, 0)
       };
-      debug("CHAN-LIST: ");
-      bufD.copy(bufA, header_size, 0);
-      debug(bufD);
+      bufD.copy(bufA, bufB.length, 0);
 
       var bufC = new Buffer(json);
-      bufC.copy(bufA,header_size + (chan_id_width * chans.length),0);    
-      // debug(bufA.toString());
-      debug("MESSAGE: ");
-      debug(bufA);
+      bufC.copy(bufA,bufB.length + bufD.length,0);    
       doWrite(bufA);
-      debug("END WRITE");
     }
 
     function doWrite (buf) {
-      debug("WRITING TO SOCKET: " + buf);
       // this does not seem to work at for some reason :(
       if (stream.writeable !== false) {
         try {
+          debug(buf);
+          debug(buf.toString());
           stream.write(buf);
         } catch (e) {
         

@@ -1,5 +1,5 @@
 var Application = require("./Application").Application;
-var Subscriber  = require("./Subscriber");
+var Key         = require("./Key").Key;
 
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 
@@ -7,7 +7,9 @@ var api = require("relay-core/api");
 var net = require("net");
 
 var apps = {
-  "test": new Application("test", [])
+  "test": new Application("test", 
+                          [new Key("read_key",  api.PERM_READ), 
+                           new Key("write_key", api.PERM_WRITE)])
 };
 
 var server = net.createServer(function (raw_stream) {
@@ -22,7 +24,8 @@ var server = net.createServer(function (raw_stream) {
           stream.emit("data", obj);
         }
       } else {
-        stream.close();
+        console.log("Got a non Hello request");
+        stream.end();
       }
     });
   });
