@@ -3,7 +3,7 @@ var Buffer = require("buffer").Buffer;
 var event  = require("events");
 var api    = require("./api");
 
-var DEBUG = false;
+var DEBUG = true;
 function debug (st) {
   if (DEBUG) console.log(st);
 }
@@ -129,19 +129,8 @@ function ApplicationSocketLink (stream) {
     }
   }
 
-  function mesgModeReader (data) {
-    debug("Reading a message");
-
-    // we need to have all of the header data available 
-    // before we proceed.
-
-    gotoMode(mesgHeaderReader(function (data) {
-
-      debug("Waiting for: " + waiting);
-
-      // We now know how much data we are waiting for, so let read it in
-      // and copy it into a new buffer.
-
+  function mesgBodyReader(handler) {
+    return function (data) {
       var over  = data.length - waiting;
       var dataA = data.slice(0, over > 0 ? waiting : data.length);
 
@@ -153,16 +142,41 @@ function ApplicationSocketLink (stream) {
       debug("queue: " + queue.toString());
       if (waiting == 0) {
         debug("Done waiting");
+        handler();
+      }
+      reset();
+      if (over > 0) {
+        var leftover = data.slice(data.length-over, data.length);
+        if (leftover.length > 0) self.emit("data", leftover);
+      }
+    };
+
+  }
+
+  function mesgModeReader (data) {
+    debug("Reading a message");
+
+    // we need to have all of the header data available 
+    // before we proceed.
+
+    gotoMode(mesgHeaderReader(function (data) {
+
+      debug("Waiting for: " + waiting);
+
+
+      gotoMode(mesgBodyReader(function () {
+
         // we need to parse out our channel list:
         var chan_list = [];
+
         for (var i = 0; i < number_of_channels; i++) {
           var n_chan = 0;
           for (var k = (i * chan_id_width); k < (i * chan_id_width) + chan_id_width; k++) {
             n_chan = n_chan << 8;
             n_chan = queue[k] | n_chan;
           }
-          chan_list.push(n_chan)
-            }
+          chan_list.push(n_chan);
+        }
 
         queue = queue.slice(i * chan_id_width, queue.length);
           
@@ -183,16 +197,8 @@ function ApplicationSocketLink (stream) {
             if (json) chan.emit("data", api.constructMessage(json));
           });
         });
-          
-        reset();
-
-        if (over > 0) {
-          var leftover = data.slice(data.length-over, data.length);
-          if (leftover.length > 0) self.emit("data", leftover);
-        }
-      }
+      }), data);
     }), data);
-             
   };
 
   function emitToAllChannels (signal) {
