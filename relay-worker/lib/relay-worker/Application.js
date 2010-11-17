@@ -1,6 +1,6 @@
-var api = require("relay-core/api");
+var api                   = require("relay-core/api");
 var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket;
-var Key = require("./Key").Key;
+var Key                   = require("./Key").Key;
 
 // Route (a.k.a Channel) ///////////////////////
 
@@ -38,6 +38,11 @@ function Route (name) {
 
 // Client ///////////////////////////////////
 
+/* 
+   a Client is a user of the application, when a client initializes a
+   session it is given a client-id...
+
+ */
 function Client (client_id, stream, perms) {
   this.canWrite = function canWrite () {
     console.log("WRITE: " + api.PERM_WRITE & perms);
@@ -65,11 +70,17 @@ function Client (client_id, stream, perms) {
   this.write = function write(data) {
     return stream.write(data);
   };
+  this.fork = function (stream) {
+    var nc = new Client(client_id, stream, perms);
+    return nc;
+  }
 }
 
 // Application ////////////////////////////////////////////////////////////
 
 function Application (appId, keys) {
+
+  var self = this;
 
   if (keys == undefined) keys = [];
 
@@ -77,10 +88,6 @@ function Application (appId, keys) {
     return appId 
   };
 
-  // Application.assumeStream - give an application control over a socket
-  this.assumeStream = function(stream) {
-    streamHandler(stream);
-  };
 
   ////////////////////////////////////////////////////////////////////////
 
@@ -100,8 +107,10 @@ function Application (appId, keys) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  function streamHandler (app_stream) {
-    var client = new Client(newClientId(), app_stream, 0);
+  // Application.assumeStream - give an application control over a socket
+  this.assumeStream = function assumeStream (app_stream, client) {
+
+    if (!client) client = new Client(newClientId(), app_stream, 0);
 
     app_stream.removeAllListeners("data");
     app_stream.on("data", function (data) {
@@ -138,6 +147,7 @@ function Application (appId, keys) {
 
       "Hello" : function () {
 
+        // If the request includes keys setup new permissions for the user.
         if (request.getKeys()) {
           request.getKeys().forEach(function(key){
             var real_key = getKeyByHash(key);
@@ -160,18 +170,20 @@ function Application (appId, keys) {
         sendToRoute("#global", new api.Message("#global",
                                                "@master",
                                                "User @" + client.getClientId() + " has entered #global"));
-
+        
       },
 
       // Client said "Join", the client wants to join a channel to listen for updates
 
       "Join" : function () {
         if (client.canRead() && joinRoute(request.getBody(), client)) {
-          // If the client is able to choin the channel (aka route) then inform everyone on that channel that they have entered.
+
+          // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
           sendToRoute(request.getBody(), new api.Message(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
 
           // Inform the client of a successful "Join".
           client.write(new api.Enter());
+
         } else {
           client.write(new api.PermissionDeniedError());
         }

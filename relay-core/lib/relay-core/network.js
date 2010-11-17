@@ -30,8 +30,11 @@ function ApplicationSocketLink (stream) {
 
   var MODE_MESG = 1;
   var MODE_END  = 2;
+  var MODE_FORK = 3;
 
   var self = this;
+  var top  = this;
+
   var channels = {};
   var mode_header_width = 1;
   var chan_list_header_width = 2;
@@ -77,6 +80,7 @@ function ApplicationSocketLink (stream) {
       bytes_to_read = n;
       stream.removeAllListeners("data");
       stream.on("data", function (data) {
+        //debug(data);
         if (data.length >= bytes_to_read) {
           data.copy(buffer, bytes_read, 0, bytes_to_read);
           if (data.length == bytes_to_read) {
@@ -129,52 +133,87 @@ function ApplicationSocketLink (stream) {
 
   // please watch your step.
 
-  function messageReader (data) {
+  var mode_handlers = {};
+  mode_handlers[MODE_MESG] = mesgHandler;
+  mode_handlers[MODE_FORK] = forkHandler;
+  mode_handlers[MODE_END]  = endHandler;
+
+  // The reader is always the starting place...
+  function modeReader (data) {
     if (data) windUp(data);
     reader.read(1, function(mode) {
-      debug("Mode is: " + (mode | 0));
-      reader.read(2, function(number_of_channels) {
-        number_of_channels = parseN(2, number_of_channels);
-        debug("Number of channels is: " + number_of_channels);
-        reader.read(2, function(mesg_length) {
-          mesg_length = parseN(2, mesg_length);
-          debug("message length is: " + mesg_length);
-          reader.read(number_of_channels * chan_id_width, function (chans_str) {
-            var chans = [];
-            for (var i = 0; i < number_of_channels; i++) {            
-              var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
-              chans.push(parseN(2, slice));
+      mode = (mode[0] | 0);
+      debug("Mode is: " + mode);
+      mode_handlers[mode]();
+    });
+  };
+  
+  // The client has sent a fork signal
+  function forkHandler () {
+    reader.read(2, function (chan_to_fork) {
+      reader.read(2, function (new_chan) {
+        chan_to_fork = channels[parseN(2, chan_to_fork)];
+        new_chan     = new SocketChannel(parseN(2, new_chan));
+        debug("FORKING " + chan_to_fork.getId() + " to " + new_chan.getId());
+        chan_to_fork.emit("fork", new_chan);
+        channels[new_chan.getId()] = new_chan;
+        modeReader();
+      });
+    });
+  };
+
+  // The client has sent an end signal
+  function endHandler () {
+    reader.read(2, function (chan_to_end) {
+      chan_to_end = parseN(2, chan_to_end);
+      channels[chan_to_end].emit("end");
+      delete channels[chan_to_end];
+      modeReader();
+    });
+  };
+
+  function mesgHandler (data) {
+    reader.read(2, function(number_of_channels) {
+      number_of_channels = parseN(2, number_of_channels);
+      debug("Number of channels is: " + number_of_channels);
+      reader.read(2, function(mesg_length) {
+        mesg_length = parseN(2, mesg_length);
+        debug("message length is: " + mesg_length);
+        reader.read(number_of_channels * chan_id_width, function (chans_str) {
+          var chans = [];
+          for (var i = 0; i < number_of_channels; i++) {            
+            var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
+            chans.push(parseN(2, slice));
+          }
+          debug("Channels are: " + chans);
+          reader.read(mesg_length, function(mesg) {
+            debug("Message is: " + mesg.toString());
+
+            try {
+              var json = JSON.parse(mesg.toString('utf8'));
+            } catch (e) {
+              self.emit("error");
             }
-            debug("Channels are: " + chans);
-            reader.read(mesg_length, function(mesg) {
-              debug("Message is: " + mesg.toString());
 
-              try {
-                var json = JSON.parse(mesg.toString('utf8'));
-              } catch (e) {
-                self.emit("error");
+            chans.forEach(function(chan_id) {
+              var chan = channels[chan_id];
+              if (chan == undefined) {
+                chan = new SocketChannel(chan_id);
+                self.emit("channel", chan);
+                channels[chan_id] = chan;
               }
-
-              chans.forEach(function(chan_id) {
-                var chan = channels[chan_id];
-                if (chan == undefined) {
-                  chan = new SocketChannel(chan_id);
-                  self.emit("channel", chan);
-                  channels[chan_id] = chan;
-                }
-                process.nextTick(function() {
-                  if (json) chan.emit("data", api.constructMessage(json));
-                });
+              process.nextTick(function() {
+                if (json) chan.emit("data", api.constructMessage(json));
               });
-              messageReader();
             });
+            modeReader();
           });
         });
       });
     });
   }
 
-  stream.on("data", messageReader);
+  stream.on("data", modeReader);
 
   function emitToAllChannels (signal) {
     for (channel in channels) {
@@ -228,7 +267,16 @@ function ApplicationSocketLink (stream) {
     this.getSocket = function () { return stream };
 
     this.end = this.destroy = function () { 
-      removeChannel(id);
+      var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
+      doWrite(buf);
+    };
+
+    this.fork = function () {
+      var new_chan = top.newChannel();
+      var buf = new Buffer(pack('Cnn', MODE_FORK, self.getId(), new_chan.getId()), 'binary');
+      doWrite(buf);
+      channels[new_chan.getId()] = new_chan;
+      return new_chan;
     };
 
     this.write = function (obj) { 
@@ -264,8 +312,8 @@ function ApplicationSocketLink (stream) {
       // this does not seem to work at for some reason :(
       if (stream.writeable !== false) {
         try {
-          debug(buf);
-          debug(buf.toString());
+          // debug(buf);
+          // debug(buf.toString());
           stream.write(buf);
         } catch (e) {
         
