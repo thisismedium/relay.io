@@ -40,20 +40,67 @@ function ApplicationSocketLink (stream) {
 
   var max_channel_id = 1 << (8 * chan_id_width);
   var header_size  = chan_list_header_width + mesg_length_header_width;
-  var header_bytes_read, header, waiting, queue, queue_written, chan_id, number_of_channels, mode;
+
 
   stream.removeAllListeners("data");
+ 
+  var wait_buffer;
 
-  function reset () {
-    header_bytes_read = 0;
-    header = new Buffer(header_size, 'binary');
-    waiting = 0;
-    number_of_channels = 0;
-    mode = undefined;
-    gotoMode(getModeReader);
+  function windUp (data) {
+    wait_buffer = data;
   };
 
-  reset();
+  function parseN (n, data) {
+    var out = 0;
+    for (var i = 0; i < n; i++) {
+      out = out << 8;
+      out = data[i] | out;
+    }
+    return out;
+  }
+
+  // BitReaders job is to accept data from the network stream and
+  // store it until it recieves enough, at which point it passes the
+  // data to a callback. Bit reader will completely take over the socket
+  // when the .read() method is called.
+
+  function BitReader () {
+
+    var buffer;
+    var bytes_to_read = 0;
+    var bytes_read = 0;
+    var self = this;
+
+    this.read = function (n, callback) {
+      buffer = new Buffer(n);
+      bytes_read = 0;
+      bytes_to_read = n;
+      stream.removeAllListeners("data");
+      stream.on("data", function (data) {
+        if (data.length >= bytes_to_read) {
+          data.copy(buffer, bytes_read, 0, bytes_to_read);
+          if (data.length == bytes_to_read) {
+            wait_buffer = undefined;
+          } else {
+            wait_buffer = data.slice(bytes_to_read, data.length);
+          }
+          bytes_read += bytes_read;
+          bytes_to_read = 0;
+        } else {
+          data.copy(buffer, bytes_read, 0, data.length);
+          bytes_read += data.length;
+          bytes_to_read -= data.length;
+          wait_buffer = undefined;
+        }
+        if (bytes_to_read == 0) {
+          callback(buffer);
+        }
+      });
+      if (wait_buffer) stream.emit("data", wait_buffer);
+    };
+  };
+  
+  var reader = new BitReader();
 
   /*
   The fun starts here, we need to read in a header which contains the
@@ -80,126 +127,54 @@ function ApplicationSocketLink (stream) {
 
   */
 
-  function gotoMode (mode, data) {
-    console.log(mode);
-    stream.removeAllListeners("data");
-    stream.on("data", mode);
-    if (data) stream.emit("data", data);
-  };
+  // please watch your step.
 
-  function getModeReader (data) {
-    var cbs = {};
-    cbs[MODE_MESG] = mesgModeReader;
-    cbs[MODE_END]  = endModeReader;
-    var mode = data[0];
-    debug("Mode is: " + mode);
-    gotoMode(cbs[mode], data.slice(1, data.length));
-  };
+  function messageReader (data) {
+    if (data) windUp(data);
+    reader.read(1, function(mode) {
+      debug("Mode is: " + (mode | 0));
+      reader.read(2, function(number_of_channels) {
+        number_of_channels = parseN(2, number_of_channels);
+        debug("Number of channels is: " + number_of_channels);
+        reader.read(2, function(mesg_length) {
+          mesg_length = parseN(2, mesg_length);
+          debug("message length is: " + mesg_length);
+          reader.read(number_of_channels * chan_id_width, function (chans_str) {
+            var chans = [];
+            for (var i = 0; i < number_of_channels; i++) {            
+              var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
+              chans.push(parseN(2, slice));
+            }
+            debug("Channels are: " + chans);
+            reader.read(mesg_length, function(mesg) {
+              debug("Message is: " + mesg.toString());
 
-  function endModeReader (data) {
-    // gotoMode(mesgHeaderReader(function () {
-      
+              try {
+                var json = JSON.parse(mesg.toString('utf8'));
+              } catch (e) {
+                self.emit("error");
+              }
 
-    //   }),data)
-  };
-
-  function mesgHeaderReader(next) {
-    return function (data) {
-      if (header_bytes_read < header_size) {
-        for (var i = 0; header_bytes_read < header_size && i < data.length; i++){
-          header[header_bytes_read] = data[i];
-          header_bytes_read += 1;          
-        }
-        data = data.slice(i,data.length);
-      } 
-      if (header_bytes_read == header_size) {
-        for (var i = 0; i < chan_list_header_width; i++) {
-          number_of_channels = number_of_channels << 8;
-          number_of_channels = header[i] | number_of_channels;
-        }
-        for (; i < chan_list_header_width + mesg_length_header_width; i++) {
-          waiting = waiting << 8;
-          waiting = header[i] | waiting;
-        }
-        waiting += (number_of_channels * chan_id_width);
-        queue = new Buffer(waiting, 'binary');
-        queue_written = 0;
-        gotoMode(next, data);     
-      }
-    }
-  }
-
-  function mesgBodyReader(handler) {
-    return function (data) {
-      var over  = data.length - waiting;
-      var dataA = data.slice(0, over > 0 ? waiting : data.length);
-
-      dataA.copy(queue, queue_written, 0, dataA.length);
-      queue_written += dataA.length;
-      waiting       -= dataA.length;
-
-      debug("Waiting for: " + waiting);
-      debug("queue: " + queue.toString());
-      if (waiting == 0) {
-        debug("Done waiting");
-        handler();
-      }
-      reset();
-      if (over > 0) {
-        var leftover = data.slice(data.length-over, data.length);
-        if (leftover.length > 0) self.emit("data", leftover);
-      }
-    };
-
-  }
-
-  function mesgModeReader (data) {
-    debug("Reading a message");
-
-    // we need to have all of the header data available 
-    // before we proceed.
-
-    gotoMode(mesgHeaderReader(function (data) {
-
-      debug("Waiting for: " + waiting);
-
-
-      gotoMode(mesgBodyReader(function () {
-
-        // we need to parse out our channel list:
-        var chan_list = [];
-
-        for (var i = 0; i < number_of_channels; i++) {
-          var n_chan = 0;
-          for (var k = (i * chan_id_width); k < (i * chan_id_width) + chan_id_width; k++) {
-            n_chan = n_chan << 8;
-            n_chan = queue[k] | n_chan;
-          }
-          chan_list.push(n_chan);
-        }
-
-        queue = queue.slice(i * chan_id_width, queue.length);
-          
-        try {
-          var json = JSON.parse(queue.toString('utf8'));
-        } catch (e) {
-          self.emit("error");
-        }
-
-        chan_list.forEach(function(chan_id) {
-          var chan = channels[chan_id];
-          if (chan == undefined) {
-            chan = new SocketChannel(chan_id);
-            self.emit("channel", chan);
-            channels[chan_id] = chan;
-          }
-          process.nextTick(function() {
-            if (json) chan.emit("data", api.constructMessage(json));
+              chans.forEach(function(chan_id) {
+                var chan = channels[chan_id];
+                if (chan == undefined) {
+                  chan = new SocketChannel(chan_id);
+                  self.emit("channel", chan);
+                  channels[chan_id] = chan;
+                }
+                process.nextTick(function() {
+                  if (json) chan.emit("data", api.constructMessage(json));
+                });
+              });
+              messageReader();
+            });
           });
         });
-      }), data);
-    }), data);
-  };
+      });
+    });
+  }
+
+  stream.on("data", messageReader);
 
   function emitToAllChannels (signal) {
     for (channel in channels) {
@@ -215,7 +190,7 @@ function ApplicationSocketLink (stream) {
         return i;
       }
     }
-  }
+  };
   
   this.newChannel = function () {
     var nid = getNewChannelId();

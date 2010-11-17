@@ -20,8 +20,7 @@ function Client (socket_link, application, keys, channels) {
   self.on("Welcome", function(data){
     clientId = data.getClientId();
     channels.forEach(function (chan) {
-      var joins = socket_link.newChannel();
-      joins.write(new api.Join(chan));
+      stream.write(new api.Join(chan));
     });
   });
 
@@ -35,8 +34,9 @@ function Client (socket_link, application, keys, channels) {
 
 
 };
-Client.prototype = event.EventEmitter.prototype
+Client.prototype = event.EventEmitter.prototype;
 
-var sock = net.createConnection(8124, "localhost");
+var sock = new network.ApplicationSocketLink(net.createConnection(8124, "localhost"));
 
-client = new Client(new network.ApplicationSocketLink(sock), "test", ["read_key"], ["#medium","#message","#test"]);
+client1 = new Client(sock, "test", ["read_key"], ["#medium","#message","#test", "#sanders"]);
+client2 = new Client(sock, "test", ["read_key"], ["#medium","#message","#test", "#sanders"]);
