@@ -192,7 +192,7 @@ function ApplicationSocketLink (stream) {
             try {
               var json = JSON.parse(mesg.toString('utf8'));
             } catch (e) {
-              self.emit("error");
+              self.emit("error",e);
             }
 
             chans.forEach(function(chan_id) {
@@ -215,10 +215,10 @@ function ApplicationSocketLink (stream) {
 
   stream.on("data", modeReader);
 
-  function emitToAllChannels (signal) {
+  function emitOnAllChannels (signal) {
     for (channel in channels) {
       if (channels.hasOwnProperty(channel)) {
-        channels[channel].emit(signal);
+        channels[channel].emit(signal,arguments);
       }
     }
   };
@@ -243,11 +243,11 @@ function ApplicationSocketLink (stream) {
       delete channels[id];
   };
 
-  stream.on("close",function(){ emitToAllChannels ("close") });
-  stream.on("end"  ,function(){ emitToAllChannels ("end") });
-  stream.on("error",function error (e){ debug(e); debug(e.stack); emitToAllChannels ("error") });
+  stream.on("close",function(){ emitOnAllChannels ("close") });
+  stream.on("end"  ,function(){ emitOnAllChannels ("end") });
+  stream.on("error",function error (e){ debug(e); debug(e.stack); emitOnAllChannels ("error",e) });
 
-  stream.on("connect",function(){ self.emit("connect"); emitToAllChannels ("connect") });
+  stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });
 
   this.end     = function () { stream.end() }
   this.destroy = function () { stream.destroy() }
@@ -269,6 +269,7 @@ function ApplicationSocketLink (stream) {
     this.end = this.destroy = function () { 
       var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
       doWrite(buf);
+      // removeChannel(id);
     };
 
     this.fork = function () {
