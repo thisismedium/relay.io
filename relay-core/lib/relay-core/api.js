@@ -139,6 +139,17 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     });
   });
 
+  // Leave - Leave a channel
+
+  exports.Leave = autoRecord (function(address) {
+    this.load({ "type":"Leave", "body":address });  
+  });
+
+  exports.Left = autoRecord (function() {
+    this.load({ "type":"Left"});  
+  });
+
+
   // Message - a message
 
   exports.Message = autoRecord (function (to, from, body) {
@@ -185,6 +196,9 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     "Join"   : exports.Join,
     "Enter"  : exports.Enter,
 
+    "Leave"  : exports.Leave,
+    "Left"   : exports.Left,
+
     "Message": exports.Message,
     "MessageAccepted": exports.MessageAccepted,
 
@@ -198,6 +212,11 @@ var autoRecord = require("./utils/autorecord").autoRecord;
       throw "Invalid response object '" + data.type + "'";
     else
       return (new cons()).load(data)
+  };
+
+  exports.addMesgId = function (to, from) {
+    if (from.getMesgId) to._data_.mesgId = from.getMesgId();
+    return to
   };
 
 })(exports)

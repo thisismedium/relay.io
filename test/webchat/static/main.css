@@ -24,16 +24,24 @@ h3 {
 }
 
 input, #message-pane {
-    background: #eee;
-    padding: 10px;
+    background: #fafafa;
     border: solid #ddd 1px;
 }
+input { padding: 10px }
 
 #messages {
     padding:0;
     margin:0;
     height: 300px;
     overflow-x: auto;
+}
+#messages .mesg {
+    margin:0;
+    padding:10px;
+    border-bottom: dashed 1px #ddd;
+}
+#messages .mesg.error {
+    color:red;
 }
 
 #form {

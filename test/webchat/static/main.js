@@ -7,19 +7,43 @@ $(document).ready(function() {
     $("#channel").text(ch);
   };
 
+  function updateMesgPane (dat) {
+      $("#messages").append(dat);
+      var pane = document.getElementById("messages");
+      pane.scrollTop = pane.scrollHeight
+    }
+
+  var callbacks = {};
+
+  function addCallback (id, callback) {
+    if (typeof(callbacks[id]) == "undefined") {
+      callbacks[id] = [];
+    }
+    callbacks[id].push(callback);
+  }
+
   var ws = new WebSocket("ws://magic:8080");
   ws.addEventListener("message",function(mesg) {
-    //    console.log(mesg.data);
+    // console.log(mesg.data);
     var json = JSON.parse(mesg.data);
     if (json.type == "Welcome") {
       // ws.send('{"type":"Join", "body":"#sanders"}');
       $("#username").text(json.body);
     }
-    if (json.type == "Message") {
-      $("#messages").text($("#messages").text() + json.from + " -> " + json.to + ": " + json.body + "\n" );
-      var pane = document.getElementById("messages");
-      pane.scrollTop = pane.scrollHeight
+
+    if (json.mesgId && callbacks[json.mesgId]) {
+      for (var i = 0; i < callbacks[json.mesgId].length; i++) {
+        callbacks[json.mesgId][i](json);
+      }
     }
+
+    if (json.type == "Message") {
+      updateMesgPane("<pre class='mesg'>" + json.from + " -> " + json.to + ": " + json.body + "</pre>")
+    }
+    if (json.type == "Error") {
+      updateMesgPane("<pre class='mesg error'>Error: " + json.body + "</pre>")
+    }
+
 
   });
   ws.addEventListener("open", function () {
@@ -36,7 +60,7 @@ $(document).ready(function() {
   });
 
 
-var matchCommand = new RegExp("^/(JOIN|join) (.*)");
+var matchCommand = new RegExp("^/(JOIN|join|LEAVE|leave) ?(.*)?");
 function sendUserInput () {
     var input = $("#user-input").val();
     var command = input.match(matchCommand);
@@ -44,10 +68,19 @@ function sendUserInput () {
       var com = command[1].toLowerCase();
       var rest = command[2];
       if (com == "join") {
-        updateChannel(rest);
+        var mid = "TEST" + rest;
         ws.send(JSON.stringify({"type": "Join",
+                                "mesgId": mid,
                                 "body": rest }));
+        addCallback(mid, function (mesg) {
+          if (mesg.type != "Error") updateChannel(rest);
+        });
       }
+      if (com == "leave") {
+        ws.send(JSON.stringify({"type": "Leave", "body": channel}));
+        updateChannel("#global");
+      }
+
     } else {
       ws.send(JSON.stringify({"type":"Message","to": channel, "from":"@me","body": input }));
     }

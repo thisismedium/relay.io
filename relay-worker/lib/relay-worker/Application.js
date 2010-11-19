@@ -158,7 +158,7 @@ function Application (appId, keys) {
         }
 
         // Inform the client about their client_id.
-        client.write(new api.Welcome(client.getClientId()))
+        client.write(api.addMesgId(new api.Welcome(client.getClientId()), request))
 
         // Join the users private channel.
         joinRoute("@"+client.getClientId(), client);
@@ -178,15 +178,25 @@ function Application (appId, keys) {
       "Join" : function () {
         if (client.canRead() && joinRoute(request.getBody(), client)) {
 
-          // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
-          sendToRoute(request.getBody(), new api.Message(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
-
-          // Inform the client of a successful "Join".
-          client.write(new api.Enter());
-
+          if (!request.getBody().match("^#[a-zA-Z1-9]*$")) {
+            client.write(api.addMesgId(new api.PermissionDeniedError(),request));
+          } else {
+            // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
+            sendToRoute(request.getBody(), new api.Message(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
+            
+            // Inform the client of a successful "Join".
+            client.write(api.addMesgId(new api.Enter(), request));
+          }
         } else {
-          client.write(new api.PermissionDeniedError());
+          client.write(api.addMesgId(new api.PermissionDeniedError(),request));
         }
+      },
+
+      // Client said "Leave" and wanted to leave a room.
+
+      "Leave" : function () {
+        removeSubscriber(request.getBody(), client);
+        client.write(api.addMesgId(new api.Left(), request));
       },
 
       // The client as sent us a "Message", we need to route it to the right users.
@@ -202,10 +212,10 @@ function Application (appId, keys) {
             sendToRoute(request.getTo(), request);
 
             // Inform the client that their message has been delivered.
-            client.write(new api.MessageAccepted());
+            client.write(api.addMesgId(new api.MessageAccepted(), request));
           });
         } else {
-          client.write(new api.PermissionDeniedError());
+          client.write(api.addMesgId(new api.PermissionDeniedError(),request));
         }
       }
 
