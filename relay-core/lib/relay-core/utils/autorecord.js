@@ -45,5 +45,4 @@ function autoRecord (init) {
   };
   return obj;
 };
-
 exports.autoRecord = autoRecord;

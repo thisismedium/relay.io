@@ -5,10 +5,13 @@ var Key                   = require("./Key").Key;
 // Route (a.k.a Channel) ///////////////////////
 
 function Route (name) {
+
   var subscribers = [];
+
   this.getName = function getName () {
     return name;
   }
+
   this.addSubscriber = function addSubscriber (client) {
     for (var i = 0; i < subscribers.length; i++) {
       if (subscribers[i].getClientId() == client.getClientId()) {
@@ -18,6 +21,13 @@ function Route (name) {
     subscribers.push(client);
     return true;
   };
+
+  this.listSubscribers = function listSubscribers () {
+    return subscribers.map(function(subscriber) {
+      return subscriber.getClientId();
+    });
+  };
+
   this.removeSubscriber = function removeSubscriber (client) {
     var out = [];
     var res = subscribers;
@@ -28,12 +38,14 @@ function Route (name) {
     subscribers = out;
     console.log(out.length);
   };
+
   this.write = function write (mesg) {
     var streams = subscribers.map(function (s) { return s.getStream() });
     groupChannelsBySocket(streams).forEach(function(sub) {
       sub[0].multiWrite(sub, mesg);
     });
   }
+
 };
 
 // Client ///////////////////////////////////
@@ -44,36 +56,42 @@ function Route (name) {
 
  */
 function Client (client_id, stream, perms) {
+
   this.canWrite = function canWrite () {
     console.log("WRITE: " + api.PERM_WRITE & perms);
     return api.PERM_WRITE & perms
   };
+
   this.canRead = function canRead () {
     return api.PERM_READ & perms
   };
+
   this.resetPerms = function resetPerms () {
     perms = 0;
+    return this;
   };
+
   this.setPerms = function setPerms (p) {
-    console.log("Adding perms: " + p);
     perms = p | perms;
+    return this;
   };
+
   this.getClientId = function getClientId() {
     return client_id;
   };
+
   this.getStream = function getString () {
     return stream;
   };
+
   this.getSocket = function getSocket () {
     return stream.getSocket();
   };
+
   this.write = function write(data) {
     return stream.write(data);
   };
-  this.fork = function (stream) {
-    var nc = new Client(client_id, stream, perms);
-    return nc;
-  }
+
 }
 
 // Application ////////////////////////////////////////////////////////////
@@ -85,9 +103,8 @@ function Application (appId, keys) {
   if (keys == undefined) keys = [];
 
   this.getAppId = function () { 
-    return appId 
+    return appId
   };
-
 
   ////////////////////////////////////////////////////////////////////////
 
@@ -127,6 +144,8 @@ function Application (appId, keys) {
 
   };
 
+  ////////////////////////////////////////////////////////////////////////
+
   function getKeyByHash (hash) {
     for (var i = 0; i < keys.length; i++) {
       if (keys[i].getHash() === hash) {
@@ -135,14 +154,10 @@ function Application (appId, keys) {
     }
     return undefined;
   };
-  
-  ////////////////////////////////////////////////////////////////////////
 
   function processRequest(request, client) {
     var calls = { 
       
-      // When client says ____  do  ____.
-
       // Client said "Hello", they are brand new to the world...
 
       "Hello" : function () {
@@ -157,19 +172,17 @@ function Application (appId, keys) {
           });
         }
 
-        // Inform the client about their client_id.
-        client.write(api.addMesgId(new api.Welcome(client.getClientId()), request))
-
         // Join the users private channel.
         joinRoute("@"+client.getClientId(), client);
 
         // Join the global control channel.
         joinRoute("#global", client);
 
+        // Inform the client about their client_id.
+        request.replyWith(new api.Welcome(client.getClientId())).sendTo(client);
+
         // Inform the global channel of the clients activation.
-        sendToRoute("#global", new api.Message("#global",
-                                               "@master",
-                                               "User @" + client.getClientId() + " has entered #global"));
+        sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
         
       },
 
@@ -179,16 +192,22 @@ function Application (appId, keys) {
         if (client.canRead() && joinRoute(request.getBody(), client)) {
 
           if (!request.getBody().match("^#[a-zA-Z1-9]*$")) {
-            client.write(api.addMesgId(new api.PermissionDeniedError(),request));
+            request.replyWith(new api.PermissionDeniedError()).sendTo(client);
           } else {
             // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
-            sendToRoute(request.getBody(), new api.Message(request.getBody(), "@master","User @" + client.getClientId() + " has entered channel " + request.getBody()));
-            
+            sendMessageToRoute(request.getBody(), new api.ClientEnter(client.getClientId(), request.getBody()));            
             // Inform the client of a successful "Join".
-            client.write(api.addMesgId(new api.Enter(), request));
+            request.replyWith(new api.Enter()).sendTo(client);
           }
         } else {
-          client.write(api.addMesgId(new api.PermissionDeniedError(),request));
+          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+        }
+      },
+
+      "List" : function () {
+        var route = request.getChannelId();
+        if (routes[route]) {
+          request.replyWith(new api.ChannelInfo(route, routes[route].listSubscribers())).sendTo(client);
         }
       },
 
@@ -196,7 +215,8 @@ function Application (appId, keys) {
 
       "Leave" : function () {
         removeSubscriber(request.getBody(), client);
-        client.write(api.addMesgId(new api.Left(), request));
+        sendMessageToRoute(request.getBody(), new api.ClientExit(client.getClientId(), request.getBody()));
+        request.replyWith(new api.Left()).sendTo(client);
       },
 
       // The client as sent us a "Message", we need to route it to the right users.
@@ -206,19 +226,22 @@ function Application (appId, keys) {
           // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
           // user we tagged in incoming stream with.
           request.setFrom("@"+client.getClientId())
-
+          
           process.nextTick (function () {
             // Send the message to the proper channels.
-            sendToRoute(request.getTo(), request);
+            sendMessageToRoute(request.getTo(), request);
 
             // Inform the client that their message has been delivered.
-            client.write(api.addMesgId(new api.MessageAccepted(), request));
+            request.replyWith(new api.MessageAccepted()).sendTo(client);
           });
         } else {
-          client.write(api.addMesgId(new api.PermissionDeniedError(),request));
+          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
         }
-      }
+      },
 
+      "InvalidMessage" : function () {
+        request.replyWith(new api.InvalidRequestError()).sendTo(client);
+      }
     }
     calls[request.getType()]();
   };
@@ -230,7 +253,7 @@ function Application (appId, keys) {
     // Set listener so that if the clients socket closes they are removed from the channel we just placed them in.
     function remove () {
       removeSubscriber(id, client);
-      sendToRoute(id, new api.Message(id, "@master","User @" + client.getClientId() + " has left the channel " + id));
+      sendMessageToRoute(id, new api.ClientExit(client.getClientId(), id));
     }
     // no funny stuff or you're gone.
     client.getStream().on("close", remove);
@@ -258,7 +281,7 @@ function Application (appId, keys) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  function sendToRoute(resource, mesg) {
+  function sendMessageToRoute(resource, mesg) {
     if (routes[resource]) {
       routes[resource].write(mesg);
       return true;

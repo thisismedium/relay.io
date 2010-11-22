@@ -1,3 +1,4 @@
+require("./inherit");
 var pack   = require("./utils/pack").pack;
 var Buffer = require("buffer").Buffer;
 var event  = require("events");
@@ -323,10 +324,10 @@ function ApplicationSocketLink (stream) {
     }
 
   };
-  SocketChannel.prototype = event.EventEmitter.prototype;
+  SocketChannel.inheritsFrom(event.EventEmitter);
 
 };
-ApplicationSocketLink.prototype = event.EventEmitter.prototype;
+ApplicationSocketLink.inheritsFrom(event.EventEmitter);
 exports.ApplicationSocketLink = ApplicationSocketLink;
 
 

@@ -13,20 +13,27 @@
 		</script>
 	</head>
 	<body>
-<div id="content">
-    <h2 id="username">Loading...</h2>
-    <h3 id="channel">#global</h3>
-<div id="message-pane"><div id="messages">
-</div></div>
-<div id="form">
-  <input type="text" id="user-input" />
-  <input type="button" id="send" value="send" />
+    <div id="content">
+      <h2 id="username">Loading...</h2>
+      <h3 id="channel">#global</h3>
+      <div class="panes">
+        <div id="user-pane">
+          <div id="users">
+          </div>
+        </div>
+        <div id="message-pane"><div id="messages">
+          </div>
+        </div>
+      </div>
+      <div id="form">
+        <input type="text" id="user-input" />
+        <input type="button" id="send" value="send" />
 </form>
 <p id="commands-list"><b>Commands:</b><br/>
   /join &lt;channel&gt;
   <br/>
   /leave</p>
 </div>
-		<script type="text/javascript" src="main.js"></script>
-	</body>
+<script type="text/javascript" src="main.js"></script>
+</body>
 </html>

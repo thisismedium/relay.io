@@ -33,6 +33,6 @@ var server = net.createServer(function (raw_stream) {
 
 server.listen(8124, 'localhost');
 
-process.on('uncaughtException', function (err) {
-  console.log('Caught exception: ' + err);
-});
+// process.on('uncaughtException', function (err) {
+//   console.log('Caught exception: ' + err);
+// });

@@ -13,6 +13,17 @@ $(document).ready(function() {
       pane.scrollTop = pane.scrollHeight
     }
 
+  function addUserToPane (channelId, clientId) {
+    updateUserPane("<div class='user "+clientId+"'>" + channelId + "/@" + clientId + "</div>");
+  };
+  function removeFromUserPane (clientId) {
+    $("#users ."+clientId).hide();
+    };
+
+  function updateUserPane (dat) {
+    $("#users").append(dat);
+  };
+
   var callbacks = {};
 
   function addCallback (id, callback) {
@@ -29,6 +40,7 @@ $(document).ready(function() {
     if (json.type == "Welcome") {
       // ws.send('{"type":"Join", "body":"#sanders"}');
       $("#username").text(json.body);
+      ws.send(JSON.stringify({"type": "List", "body": "#global"}));
     }
 
     if (json.mesgId && callbacks[json.mesgId]) {
@@ -39,6 +51,23 @@ $(document).ready(function() {
 
     if (json.type == "Message") {
       updateMesgPane("<pre class='mesg'>" + json.from + " -> " + json.to + ": " + json.body + "</pre>")
+    }
+
+    if (json.type == "ClientEnter") {
+      if (json.body.channelId == channel)
+        addUserToPane(json.body.channelId, json.body.clientId);
+    }
+
+    if (json.type == "ClientExit") {
+      removeFromUserPane(json.body.clientId);
+    }
+
+
+    if (json.type == "ChannelInfo") {
+      $("#users").html("");
+      for (var i = 0; i < json.clients.length; i++) {
+        addUserToPane(json.channel, json.clients[i]);
+      }
     }
     if (json.type == "Error") {
       updateMesgPane("<pre class='mesg error'>Error: " + json.body + "</pre>")
@@ -73,12 +102,16 @@ function sendUserInput () {
                                 "mesgId": mid,
                                 "body": rest }));
         addCallback(mid, function (mesg) {
-          if (mesg.type != "Error") updateChannel(rest);
+          if (mesg.type != "Error") {
+            updateChannel(rest);
+            ws.send(JSON.stringify({"type": "List", "body": rest}));
+          }          
         });
       }
       if (com == "leave") {
         ws.send(JSON.stringify({"type": "Leave", "body": channel}));
         updateChannel("#global");
+        ws.send(JSON.stringify({"type": "List", "body": "#global"}));
       }
 
     } else {

@@ -22,10 +22,25 @@ h3 {
     width: 90%;
     margin: 10px auto;
 }
-
-input, #message-pane {
+.panes{
+    width: 100%;
+    overflow: auto;
+}
+input, #message-pane, #user-pane {
     background: #fafafa;
     border: solid #ddd 1px;
+}
+#message-pane, #user-pane {
+   float:left;
+}
+#user-pane {
+    width: 15%;
+    height: 300px;
+    margin-right: 1%;
+}
+#message-pane {
+    width: 83%;
+    background: #f2f7ff;
 }
 input { padding: 10px }
 
@@ -35,10 +50,17 @@ input { padding: 10px }
     height: 300px;
     overflow-x: auto;
 }
-#messages .mesg {
+#messages .mesg, #user-pane .user {
     margin:0;
     padding:10px;
     border-bottom: dashed 1px #ddd;
+
+}
+#user-pane .user{
+    font-size: x-small;
+}
+#messages .mesg {
+    border-color: #dadfe5;
 }
 #messages .mesg.error {
     color:red;

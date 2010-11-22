@@ -50,6 +50,19 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
  */
 
+function autoMessage (fn) {
+  return autoRecord(function () {
+    this.replyWith = function (replyMesg) {
+      if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
+      return replyMesg;
+    };
+    this.sendTo = function (socket) {
+      return socket.write(this);
+    };
+    if (fn) fn.apply(this, arguments);
+  });
+}
+
 (function (exports) {
 
   // Client type permission
@@ -76,25 +89,32 @@ var autoRecord = require("./utils/autorecord").autoRecord;
   var ST_ERROR   = 500;
 
   var ST_INVALID_APP       = 501; // Invalid application
-  var ST_PERMISSION_DENIED = 502  // Permission Denied
+  var ST_PERMISSION_DENIED = 502; // Permission Denied
+  var ST_INVALID_REQUEST   = 503; // Invalid Request
 
-  exports.InvalidApplicationError = autoRecord (function () {
-    this.load({ "type": "Error",
-                "status": ST_INVALID_APP,
-                "body": "Not a valid application"
-              });
-    });
+  // Errors...
 
-  exports.PermissionDeniedError = autoRecord (function () {
-    this.load({ "type": "Error",
-                "status": ST_PERMISSION_DENIED,
-                "body": "Permission Denied"
-              });
-    });
+  exports.Error = autoMessage(function (error_code, error_message) {
+    this.load( { "type": "Error",
+                 "status": error_code ? error_code : ST_ERROR,
+                 "body"  : error_message ? error_message : "" });
+  });
+
+  exports.InvalidApplicationError = function () { 
+    return new exports.Error(ST_INVALID_APP, "Invalid Application");
+  };
+
+  exports.PermissionDeniedError = function () {
+    return new exports.Error(ST_PERMISSION_DENIED, "Permission Denied");
+  };
+
+  exports.InvalidRequestError = function () {
+    return new exports.Error(ST_INVALID_REQUEST, "Invalid Request");
+  };
 
   // Hello - Initialize a connection
 
-  exports.Hello = autoRecord (function(app_id, keys) {
+  exports.Hello = autoMessage (function(app_id, keys) {
     this.load({
       "type": "Hello",
       "body": app_id,
@@ -109,7 +129,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     }
   });
   
-  exports.Welcome = autoRecord (function (client_id) {
+  exports.Welcome = autoMessage (function (client_id) {
     this.load({
       "status": ST_SUCCESS,
       "type": "Welcome",
@@ -124,7 +144,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
   // Join - Listen for messages
 
-  exports.Join = autoRecord (function (address, keys) {
+  exports.Join = autoMessage (function (address, keys) {
     this.load({
       "type": "Join",
       "body": address,
@@ -132,7 +152,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     });
   });
 
-  exports.Enter = autoRecord (function () {
+  exports.Enter = autoMessage (function () {
     this.load({
       "type": "Enter",
       "status": ST_SUCCESS
@@ -141,18 +161,45 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
   // Leave - Leave a channel
 
-  exports.Leave = autoRecord (function(address) {
+  exports.Leave = autoMessage (function(address) {
     this.load({ "type":"Leave", "body":address });  
   });
 
-  exports.Left = autoRecord (function() {
+  exports.Left = autoMessage (function() {
     this.load({ "type":"Left"});  
   });
 
+  exports.ClientEnter = autoMessage(function(client_id, channel) {
+    this.load({ "type": "ClientEnter", 
+                "body": { "clientId": client_id,
+                          "channelId": channel }
+              });
+  });
+
+  exports.ClientExit = autoMessage(function(client_id, channel) {
+    this.load({ "type": "ClientExit", 
+                "body": { "clientId": client_id,
+                          "channelId": channel }
+              });
+  });
+
+  exports.List = autoMessage(function(channel) {
+    this.load({"type": "List",
+               "body": channel});
+    this.getChannelId = function () {
+      return this.getBody();
+    }
+  });
+  
+  exports.ChannelInfo = autoMessage(function(channel, clients) {
+    this.load({"type": "ChannelInfo",
+               "channel": channel,
+               "clients": clients});
+  });
 
   // Message - a message
 
-  exports.Message = autoRecord (function (to, from, body) {
+  exports.Message = autoMessage (function (to, from, body) {
     this.load({
       "type": "Message",
       "to": to,
@@ -161,32 +208,22 @@ var autoRecord = require("./utils/autorecord").autoRecord;
     });
   });
 
-  exports.MessageAccepted = autoRecord(function() {
+  exports.MessageAccepted = autoMessage(function() {
     this.load({"type": "MessageAccepted"});
-  })
+  });
 
-  // exports.MessageResponse = autoRecord (function () {
-  //   this.load({
-  //     "type": "Message",
-  //     "status": ST_SUCCESS
-  //   });
-  // });
+  // InvalidMessage
+
+  exports.InvalidMessage = autoMessage(function(mesg) {
+    this.load({"type": "InvalidMessage", "message": mesg });
+    this.getMesgId = function () {
+      return mesg.mesgId;
+    }
+  });
 
   // convert raw json data into a fancier Javascript function with accessor
   // methods and what not.
 
-  exports.Error = function () {
-    this.load = function (json) {
-      var error_constructors = {
-        ST_INVALID_APP:       exports.InvalidApplicationError,
-        ST_PERMISSION_DENIED: exports.PermissionDeniedError
-      }
-      var er = new (error_constructors[""+json.status])();
-      er.load(json);
-      this = er;
-    };
-  };
-  exports.Error = autoRecord();
 
   var mesg_constructors = {
 
@@ -195,6 +232,12 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
     "Join"   : exports.Join,
     "Enter"  : exports.Enter,
+
+    "ClientEnter": exports.ClientEnter,
+    "ClientExit": exports.ClientExit,
+
+    "List": exports.List,
+    "ChannelInfo": exports.ChannelInfo,
 
     "Leave"  : exports.Leave,
     "Left"   : exports.Left,
@@ -209,14 +252,8 @@ var autoRecord = require("./utils/autorecord").autoRecord;
   exports.constructMessage = function (data) {
     var cons = mesg_constructors[data.type];
     if (!cons) 
-      throw "Invalid response object '" + data.type + "'";
+      return (new exports.InvalidMessage(data));
     else
       return (new cons()).load(data)
   };
-
-  exports.addMesgId = function (to, from) {
-    if (from.getMesgId) to._data_.mesgId = from.getMesgId();
-    return to
-  };
-
 })(exports)
