@@ -15,7 +15,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
   Server says: (Hello | Welcome) <client_id>
              | Error "Permission Denied"
-             | Error "Invalid Keys"
+             | Error "Invalid Key(s)"
 
   Joining a channel
   -----------------
@@ -50,6 +50,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
  */
 
+// autoMessage wraps autoRecord and adds a few methods...
 function autoMessage (fn) {
   return autoRecord(function () {
     this.replyWith = function (replyMesg) {
@@ -112,6 +113,16 @@ function autoMessage (fn) {
     return new exports.Error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
+  
+  ////////////////////////////////////////////////////////////////////////
+
+  // General Success Message...
+
+  exports.Success = autoMessage(function () {
+    this.load({"type": "Success",
+               "status": ST_SUCCESS});
+  });
+
   // Hello - Initialize a connection
 
   exports.Hello = autoMessage (function(app_id, keys) {
@@ -152,22 +163,10 @@ function autoMessage (fn) {
     });
   });
 
-  exports.Enter = autoMessage (function () {
-    this.load({
-      "type": "Enter",
-      "status": ST_SUCCESS
-    });
+  exports.Exit = autoMessage (function(address) {
+    this.load({ "type":"Exit", "body":address });  
   });
 
-  // Leave - Leave a channel
-
-  exports.Leave = autoMessage (function(address) {
-    this.load({ "type":"Leave", "body":address });  
-  });
-
-  exports.Left = autoMessage (function() {
-    this.load({ "type":"Left"});  
-  });
 
   exports.ClientEnter = autoMessage(function(client_id, channel) {
     this.load({ "type": "ClientEnter", 
@@ -183,16 +182,16 @@ function autoMessage (fn) {
               });
   });
 
-  exports.List = autoMessage(function(channel) {
-    this.load({"type": "List",
+  exports.GetStatus = autoMessage(function(channel) {
+    this.load({"type": "GetStatus",
                "body": channel});
     this.getChannelId = function () {
       return this.getBody();
     }
   });
   
-  exports.ChannelInfo = autoMessage(function(channel, clients) {
-    this.load({"type": "ChannelInfo",
+  exports.ResourceStatus = autoMessage(function(channel, clients) {
+    this.load({"type": "ResourceStatus",
                "channel": channel,
                "clients": clients});
   });
@@ -208,9 +207,6 @@ function autoMessage (fn) {
     });
   });
 
-  exports.MessageAccepted = autoMessage(function() {
-    this.load({"type": "MessageAccepted"});
-  });
 
   // InvalidMessage
 
@@ -227,23 +223,22 @@ function autoMessage (fn) {
 
   var mesg_constructors = {
 
-    "Hello"  : exports.Hello,
+    "Success": exports.Success,
+
+    "Hello"  : exports.Hello, // -> Welcome | Error
     "Welcome": exports.Welcome,
 
-    "Join"   : exports.Join,
-    "Enter"  : exports.Enter,
+    "Join"   : exports.Join, // -> Success | Error
 
     "ClientEnter": exports.ClientEnter,
     "ClientExit": exports.ClientExit,
 
-    "List": exports.List,
-    "ChannelInfo": exports.ChannelInfo,
+    "GetStatus": exports.GetStatus, // -> Status | Error
+    "ResourceStatus": exports.ResourceStatus,
 
-    "Leave"  : exports.Leave,
-    "Left"   : exports.Left,
+    "Exit"  : exports.Exit, // -> Success | Error
 
-    "Message": exports.Message,
-    "MessageAccepted": exports.MessageAccepted,
+    "Message": exports.Message, // -> Success | Error
 
     "Error"  : exports.Error
 
