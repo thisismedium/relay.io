@@ -1,0 +1,6 @@
+[submodule "deps/iteratee.js"]
+	path = deps/iteratee.js
+	url = git@github.com:jamessanders/iteratee.js.git
+[submodule "deps/iterator.js"]
+	path = deps/iterator.js
+	url = git@github.com:jamessanders/iterators.js.git

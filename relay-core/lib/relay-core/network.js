@@ -1,13 +1,55 @@
 require("./inherit");
+var iter   = require("./iteratee");
 var pack   = require("./utils/pack").pack;
 var Buffer = require("buffer").Buffer;
 var event  = require("events");
 var api    = require("./api");
-
 var DEBUG = true;
 function debug (st) {
   if (DEBUG) console.log(st);
 }
+
+function parseN (n, data) {
+  var out = 0;
+  for (var i = 0; i < n; i++) {
+    out = out << 8;
+    out = data[i] | out;
+  }
+  return out;
+}
+
+// Handy byte reader
+// this is meant to be run with the SocketEnumerator
+
+function readNBytes (to_read) {
+  function aux(bytes_read, buffer, chunk) {
+    console.log("GOT CHUNK");
+    console.log(chunk.data());
+
+    if (!chunk.isEOF()) {
+      for (var i = 0, b = bytes_read; i < chunk.data().length && b < to_read; i++, b++) {}
+      chunk.data().copy(buffer, bytes_read, 0, i);
+      bytes_read += i;
+      debug(buffer);
+      debug(bytes_read);
+      if (bytes_read == to_read) {
+        var leftover = chunk.data().slice(i,chunk.data().length);
+        debug("DONE");
+        debug("Leftovers: ");
+        debug(leftover);
+        return iter.Iteratee.Enough(buffer, leftover.length > 0 ? leftover : undefined);
+      } else {
+        debug("I NEED MORE: read " + bytes_read + " of " + to_read);
+        return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));
+      }
+    } else {
+      console.log("Chunk is EOF");
+      return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));;
+    }
+  };
+  debug("GET READ TO READ " + to_read + " BYTES");
+  return iter.Iteratee.Partial(aux.curry(0, new Buffer(to_read)));
+};
 
 /*
   # ApplicationSocketLink
@@ -48,64 +90,8 @@ function ApplicationSocketLink (stream) {
 
   stream.removeAllListeners("data");
  
-  var wait_buffer;
 
-  function windUp (data) {
-    wait_buffer = data;
-  };
-
-  function parseN (n, data) {
-    var out = 0;
-    for (var i = 0; i < n; i++) {
-      out = out << 8;
-      out = data[i] | out;
-    }
-    return out;
-  }
-
-  // BitReaders job is to accept data from the network stream and
-  // store it until it recieves enough, at which point it passes the
-  // data to a callback. Bit reader will completely take over the socket
-  // when the .read() method is called.
-
-  function BitReader () {
-
-    var buffer;
-    var bytes_to_read = 0;
-    var bytes_read = 0;
-    var self = this;
-
-    this.read = function (n, callback) {
-      buffer = new Buffer(n);
-      bytes_read = 0;
-      bytes_to_read = n;
-      stream.removeAllListeners("data");
-      stream.on("data", function (data) {
-        //debug(data);
-        if (data.length >= bytes_to_read) {
-          data.copy(buffer, bytes_read, 0, bytes_to_read);
-          if (data.length == bytes_to_read) {
-            wait_buffer = undefined;
-          } else {
-            wait_buffer = data.slice(bytes_to_read, data.length);
-          }
-          bytes_read += bytes_read;
-          bytes_to_read = 0;
-        } else {
-          data.copy(buffer, bytes_read, 0, data.length);
-          bytes_read += data.length;
-          bytes_to_read -= data.length;
-          wait_buffer = undefined;
-        }
-        if (bytes_to_read == 0) {
-          callback(buffer);
-        }
-      });
-      if (wait_buffer) stream.emit("data", wait_buffer);
-    };
-  };
-  
-  var reader = new BitReader();
+  var streamE = new iter.StreamEnumerator(stream);
 
   /*
   The fun starts here, we need to read in a header which contains the
@@ -140,9 +126,8 @@ function ApplicationSocketLink (stream) {
   mode_handlers[MODE_END]  = endHandler;
 
   // The reader is always the starting place...
-  function modeReader (data) {
-    if (data) windUp(data);
-    reader.read(1, function(mode) {
+  function modeReader () {
+    streamE.run(readNBytes(1), function(mode) {
       mode = (mode[0] | 0);
       debug("Mode is: " + mode);
       mode_handlers[mode]();
@@ -151,8 +136,8 @@ function ApplicationSocketLink (stream) {
   
   // The client has sent a fork signal
   function forkHandler () {
-    reader.read(2, function (chan_to_fork) {
-      reader.read(2, function (new_chan) {
+    streamE.run(readNBytes(2), function (chan_to_fork) {
+      streamE.run(readNBytes(2), function (new_chan) {
         chan_to_fork = channels[parseN(2, chan_to_fork)];
         new_chan     = new SocketChannel(parseN(2, new_chan));
         debug("FORKING " + chan_to_fork.getId() + " to " + new_chan.getId());
@@ -165,29 +150,30 @@ function ApplicationSocketLink (stream) {
 
   // The client has sent an end signal
   function endHandler () {
-    reader.read(2, function (chan_to_end) {
+    streamE.run(readNBytes(2), function (chan_to_end) {
       chan_to_end = parseN(2, chan_to_end);
+      debug("Channels to end: " + chan_to_end);
       channels[chan_to_end].emit("end");
       delete channels[chan_to_end];
       modeReader();
     });
   };
 
-  function mesgHandler (data) {
-    reader.read(2, function(number_of_channels) {
+  function mesgHandler () {
+    streamE.run(readNBytes(2), function(number_of_channels) {
       number_of_channels = parseN(2, number_of_channels);
       debug("Number of channels is: " + number_of_channels);
-      reader.read(2, function(mesg_length) {
+      streamE.run(readNBytes(2), function(mesg_length) {
         mesg_length = parseN(2, mesg_length);
         debug("message length is: " + mesg_length);
-        reader.read(number_of_channels * chan_id_width, function (chans_str) {
+        streamE.run(readNBytes(number_of_channels * chan_id_width), function (chans_str) {
           var chans = [];
           for (var i = 0; i < number_of_channels; i++) {            
             var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
             chans.push(parseN(2, slice));
           }
           debug("Channels are: " + chans);
-          reader.read(mesg_length, function(mesg) {
+          streamE.run(readNBytes(mesg_length), function(mesg) {
             debug("Message is: " + mesg.toString());
 
             try {
@@ -214,7 +200,7 @@ function ApplicationSocketLink (stream) {
     });
   }
 
-  stream.on("data", modeReader);
+  modeReader();
 
   function emitOnAllChannels (signal) {
     for (channel in channels) {
