@@ -4,7 +4,9 @@ var pack   = require("./utils/pack").pack;
 var Buffer = require("buffer").Buffer;
 var event  = require("events");
 var api    = require("./api");
+
 var DEBUG = true;
+
 function debug (st) {
   if (DEBUG) console.log(st);
 }
@@ -19,7 +21,7 @@ function parseN (n, data) {
 }
 
 // Handy byte reader
-// this is meant to be run with the StreamEnumerator
+// this is meant to be run by the StreamEnumerator
 
 function readNBytes (to_read) {
   function aux(bytes_read, buffer, chunk) {
