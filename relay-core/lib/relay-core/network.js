@@ -19,35 +19,24 @@ function parseN (n, data) {
 }
 
 // Handy byte reader
-// this is meant to be run with the SocketEnumerator
+// this is meant to be run with the StreamEnumerator
 
 function readNBytes (to_read) {
   function aux(bytes_read, buffer, chunk) {
-    console.log("GOT CHUNK");
-    console.log(chunk.data());
-
     if (!chunk.isEOF()) {
       for (var i = 0, b = bytes_read; i < chunk.data().length && b < to_read; i++, b++) {}
       chunk.data().copy(buffer, bytes_read, 0, i);
       bytes_read += i;
-      debug(buffer);
-      debug(bytes_read);
       if (bytes_read == to_read) {
         var leftover = chunk.data().slice(i,chunk.data().length);
-        debug("DONE");
-        debug("Leftovers: ");
-        debug(leftover);
         return iter.Iteratee.Enough(buffer, leftover.length > 0 ? leftover : undefined);
       } else {
-        debug("I NEED MORE: read " + bytes_read + " of " + to_read);
         return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));
       }
     } else {
-      console.log("Chunk is EOF");
       return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));;
     }
   };
-  debug("GET READ TO READ " + to_read + " BYTES");
   return iter.Iteratee.Partial(aux.curry(0, new Buffer(to_read)));
 };
 
@@ -89,7 +78,6 @@ function ApplicationSocketLink (stream) {
 
 
   stream.removeAllListeners("data");
- 
 
   var streamE = new iter.StreamEnumerator(stream);
 

@@ -197,26 +197,26 @@ function Application (appId, keys) {
             // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
             sendMessageToRoute(request.getBody(), new api.ClientEnter(client.getClientId(), request.getBody()));            
             // Inform the client of a successful "Join".
-            request.replyWith(new api.Enter()).sendTo(client);
+            request.replyWith(new api.Success()).sendTo(client);
           }
         } else {
           request.replyWith(new api.PermissionDeniedError()).sendTo(client);
         }
       },
 
-      "List" : function () {
+      "GetStatus" : function () {
         var route = request.getChannelId();
         if (routes[route]) {
-          request.replyWith(new api.ChannelInfo(route, routes[route].listSubscribers())).sendTo(client);
+          request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())).sendTo(client);
         }
       },
 
       // Client said "Leave" and wanted to leave a room.
 
-      "Leave" : function () {
+      "Exit" : function () {
         removeSubscriber(request.getBody(), client);
         sendMessageToRoute(request.getBody(), new api.ClientExit(client.getClientId(), request.getBody()));
-        request.replyWith(new api.Left()).sendTo(client);
+        request.replyWith(new api.Success()).sendTo(client);
       },
 
       // The client as sent us a "Message", we need to route it to the right users.
@@ -232,7 +232,7 @@ function Application (appId, keys) {
             sendMessageToRoute(request.getTo(), request);
 
             // Inform the client that their message has been delivered.
-            request.replyWith(new api.MessageAccepted()).sendTo(client);
+            request.replyWith(new api.Success()).sendTo(client);
           });
         } else {
           request.replyWith(new api.PermissionDeniedError()).sendTo(client);

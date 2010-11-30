@@ -40,7 +40,7 @@ $(document).ready(function() {
     if (json.type == "Welcome") {
       // ws.send('{"type":"Join", "body":"#sanders"}');
       $("#username").text(json.body);
-      ws.send(JSON.stringify({"type": "List", "body": "#global"}));
+      ws.send(JSON.stringify({"type": "GetStatus", "body": "#global"}));
     }
 
     if (json.mesgId && callbacks[json.mesgId]) {
@@ -63,7 +63,7 @@ $(document).ready(function() {
     }
 
 
-    if (json.type == "ChannelInfo") {
+    if (json.type == "ResourceStatus") {
       $("#users").html("");
       for (var i = 0; i < json.clients.length; i++) {
         addUserToPane(json.channel, json.clients[i]);
@@ -104,14 +104,14 @@ function sendUserInput () {
         addCallback(mid, function (mesg) {
           if (mesg.type != "Error") {
             updateChannel(rest);
-            ws.send(JSON.stringify({"type": "List", "body": rest}));
+            ws.send(JSON.stringify({"type": "GetStatus", "body": rest}));
           }          
         });
       }
       if (com == "leave") {
-        ws.send(JSON.stringify({"type": "Leave", "body": channel}));
+        ws.send(JSON.stringify({"type": "Exit", "body": channel}));
         updateChannel("#global");
-        ws.send(JSON.stringify({"type": "List", "body": "#global"}));
+        ws.send(JSON.stringify({"type": "GetStatus", "body": "#global"}));
       }
 
     } else {
