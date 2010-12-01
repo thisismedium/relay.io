@@ -1,5 +1,58 @@
+function EventEmitter () {
+  void(0);
+};
+EventEmitter.prototype.on = EventEmitter.prototype.addEventListener = function (event, callback) {
+  if (!this._events) this._events = {};
+  if (!this._events[event]) this._events[event] = [];
+  this._events[event].push(callback);
+};
+
+EventEmitter.prototype.emit = function () {
+  var event  = arguments[0];
+  var args   = Array.prototype.slice.call(arguments).slice(1);
+  var events = this._events[event] ? this._events[event] : [];
+  for (var i = 0; i < events.length; i++) {
+    events[i].apply(this, args);
+  }
+};  
+
+function HttpSocket () {
+
+  var self = this;
+
+  function readLoop () {
+    $.get("/stream/read", function(data) {
+      var parsed = data.split('\x00');
+      parsed.reverse();
+      for (var i = 0; i < parsed.length; i++) {
+        if (parsed[i]) self.emit("data",parsed[i]);
+        if (parsed[i]) self.emit("message",parsed[i]);
+      }
+      readLoop();
+    });
+  };
+
+  function connect() {
+    $.get("/stream/open", function(data) {
+      readLoop();
+      self.emit("connect");
+      self.emit("open");
+    })  
+  };
+
+  this.write = this.send = function write (data, callback) {
+    $.post("/stream/write", data, callback);
+  };
+
+  connect();
+
+}
+HttpSocket.prototype = EventEmitter.prototype;
+
+////////////////////////////////////////////////////////////////////////
+
 $(document).ready(function() {
-  
+
   var channel = "#global";
 
   function updateChannel (ch) {
@@ -33,10 +86,17 @@ $(document).ready(function() {
     callbacks[id].push(callback);
   }
 
-  var ws = new WebSocket("ws://magic:8080");
+  if (navigator.vendor.match(/Google/) && false) {
+    //console.log("Using a websocket");
+    var ws = new WebSocket("ws://magic:8080");
+  } else {
+    //console.log("Using an httpsocket");
+    var ws = new HttpSocket("ws://magic:8080");
+  }
   ws.addEventListener("message",function(mesg) {
     // console.log(mesg.data);
-    var json = JSON.parse(mesg.data);
+    var data = mesg.data ? mesg.data : mesg;                    
+    var json = JSON.parse(data);
     if (json.type == "Welcome") {
       // ws.send('{"type":"Join", "body":"#sanders"}');
       $("#username").text(json.body);
