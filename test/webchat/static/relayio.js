@@ -13,6 +13,7 @@ Socket Events:
    "data"       - message was recieved
    "close"      - socket closed
 
+
 */
 
 // Events
@@ -94,5 +95,100 @@ var relayio = {};
   };
   WebSocketSocket.prototype = EventEmitter.prototype;
   exports.WebSocketSocket = WebSocketSocket;
+
+  function getConnection() {
+    return HttpSocket;
+  };
+
+  function RelayClient (app_id, keys) {
+    
+    var self = this;
+
+    var connection = new (getConnection())("magic", 8080);
+    var current_message_id = 0;
+    var user_id = undefined;
+    var chans   = {};
+    var mesg_listeners = {};
+
+    connection.on("connect", function() {
+      connection.write(JSON.stringify({"type": "Hello",
+                                       "body": app_id,
+                                       "keys": keys}));
+    });
+
+    var getNextMessageId() {
+      return ++current_message_id;
+    };
+
+    var dataHandlers = {
+      "Welcome": function (mesg) {
+        user_id = mesg.body;
+      },
+      "Message": dispatchMessage
+    };
+
+    function dipatchMessage(mesg) {
+      if (mesg.to == "#global" || mesg.to == user_id) {
+        self.emit("message", mesg.body);
+      } else {
+        chans[mesg.to].emit("message", mesg.body);
+      }
+    }
+
+    connection.on("data", function (data) {
+      var json = JSON.parse(data);
+      mesg_listeners[json.mesgId](json);
+      self.emit("data", json);
+      dataHandlers[json.type](json);
+    });
+
+    this.join = function join (chan, callback) {
+
+      }
+
+  }
+  
   
 })(relayio);
+
+
+var relay = new RelayClient("my_app", ["write_key","read_key"]);
+
+relay.on("message", function(mesg) {
+  console.log(mesg);
+});
+  
+relay.on("error", function (err) {
+  console.debug(err);
+});
+
+
+/*
+relay.connect(function () {
+
+  relay.join("#medium", function(chan) {
+
+    chan.getStatus(function(status) {
+      console.log(status);
+    });
+
+    chan.on("message", function (mesg) {
+      console.log("Got mesage on #medium: " + mesg);
+    });
+    
+    chan.on("client-enter", function (client_id) {
+      console.log("Client " + client_id + " has entered.");
+    });
+    
+    chan.on("client-leave", function (client_id) {
+      console.log("Client " + client_id + " has left.");
+    });
+
+    chan.send("Hello World!", function(succeed) {
+      console.log("Hello message sent!");
+    });
+
+  });
+  
+});
+*/
