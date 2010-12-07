@@ -31,6 +31,7 @@ var relayio = {};
   };
 
   EventEmitter.prototype.emit = function () {
+    if (!this._events) this._events = {};
     var event  = arguments[0];
     var args   = Array.prototype.slice.call(arguments).slice(1);
     var events = this._events[event] ? this._events[event] : [];
@@ -104,30 +105,67 @@ var relayio = {};
     
     var self = this;
 
-    var connection = new (getConnection())("magic", 8080);
+    var connection;
+    
+    var connected = false;
+
     var current_message_id = 0;
+
     var user_id = undefined;
+
     var chans   = {};
+
     var mesg_listeners = {};
 
-    connection.on("connect", function() {
-      connection.write(JSON.stringify({"type": "Hello",
-                                       "body": app_id,
-                                       "keys": keys}));
-    });
+    var messageHandler = new EventEmitter();
 
-    var getNextMessageId() {
+    this.connect = function connect (callback) {
+
+      connection = new (getConnection())("magic", 8080);
+
+      connection.on("connect", function() {
+
+        connection.on("data", function (data) {
+          var json = JSON.parse(data);
+          if (json.mesgId && mesg_listeners[json.mesgId]) {
+            mesg_listeners[json.mesgId](json);
+            delete mesg_listeners[json.mesgId];
+          } else {
+            self.emit("data", json);
+            messageHandler.emit(json.type, json);
+          }
+        });
+
+        connection.write(JSON.stringify({"type": "Hello",
+                                         "body": app_id,
+                                         "keys": keys}));
+      });
+      
+      messageHandler.on("Welcome", function (json) {
+        connected = true;
+        user_id = json.body;
+        callback();
+      });
+
+      
+    };
+
+    function getNextMessageId() {
       return ++current_message_id;
     };
 
-    var dataHandlers = {
-      "Welcome": function (mesg) {
-        user_id = mesg.body;
-      },
-      "Message": dispatchMessage
+    function send (mesg, callback) {
+      if (callback) {
+        var id = getNextMessageId();
+        mesg.mesgId = id;
+        mesg_listeners[id] = callback;
+      }
+      connection.write(JSON.stringify(mesg))
     };
 
-    function dipatchMessage(mesg) {
+    messageHandler.on("Message", dispatchMessage);
+
+    function dispatchMessage(mesg) {
       if (mesg.to == "#global" || mesg.to == user_id) {
         self.emit("message", mesg.body);
       } else {
@@ -135,23 +173,28 @@ var relayio = {};
       }
     }
 
-    connection.on("data", function (data) {
-      var json = JSON.parse(data);
-      mesg_listeners[json.mesgId](json);
-      self.emit("data", json);
-      dataHandlers[json.type](json);
-    });
-
     this.join = function join (chan, callback) {
+      var mesg = { "type": "Join",
+                   "body": chan };
+      send(mesg, function(json) {
+        if (json.type != "Error") {
+          var chanObj = new EventEmitter();
+          chans[chan] = chanObj;
+          callback(undefined, chanObj);
+        } else {
+          callback(json.body, undefined);
+        }
+      });    
 
-      }
+    };
 
   }
-  
+  RelayClient.prototype = EventEmitter.prototype;
+  exports.RelayClient = RelayClient;
   
 })(relayio);
 
-
+/*
 var relay = new RelayClient("my_app", ["write_key","read_key"]);
 
 relay.on("message", function(mesg) {
@@ -162,8 +205,6 @@ relay.on("error", function (err) {
   console.debug(err);
 });
 
-
-/*
 relay.connect(function () {
 
   relay.join("#medium", function(chan) {
