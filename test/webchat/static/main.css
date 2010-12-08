@@ -4,12 +4,27 @@ body {
 h1, h2, h3 {
     font-weight: normal;
 }
+
+#header {
+    margin-top: 15px;
+    overflow:auto;
+    width:99.5%;
+}
+
+#channel {
+    float:left;
+}
+#username {
+    float:right;
+    color: #438ce5;
+}
+
 h2 {
     margin:0;
     padding:0;
     margin-bottom:10px;
-    padding-bottom: 10px;
-    border-bottom: solid 1px #ddd;
+
+    
 }
 h3 {
     margin:0;
@@ -29,13 +44,24 @@ h3 {
 input, #message-pane, #user-pane {
     background: #fafafa;
     border: solid #ddd 1px;
+    border-right-color: #ccc;
+    border-bottom-color: #ccc;
+}
+input#user-input {
+   border-right-color: #ddd;
+   border-bottom-color: #dd;
+   border-left-color: #ccc;
+   border-top-color: #ccc;
+}
+input#user-input.hover {
+    background-color: #fffde8;
 }
 #message-pane, #user-pane {
    float:left;
 }
 #user-pane {
     width: 15%;
-    height: 300px;
+    height: 350px;
     margin-right: 1%;
 }
 #message-pane {
@@ -47,7 +73,7 @@ input { padding: 10px }
 #messages {
     padding:0;
     margin:0;
-    height: 300px;
+    height: 350px;
     overflow-x: auto;
 }
 #messages .mesg, #user-pane .user {
@@ -80,4 +106,15 @@ input { padding: 10px }
 
 #commands-list {
     font-size: small;
+}
+
+ul.commands{
+    list-style: none;
+    margin:0;
+    padding:0;
+    padding-left: 10px;
+}
+ul.commands li {
+    font-family: monospace;
+    margin-bottom: 5px;
 }

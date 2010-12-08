@@ -14,8 +14,9 @@
 	</head>
 	<body>
     <div id="content">
-      <h2 id="username">Loading...</h2>
-      <h3 id="channel">#global</h3>
+
+      <h2 id="header"><span id="channel">#global</span> <span id="username"></span></h2>
+
       <div class="panes">
         <div id="user-pane">
           <div id="users">
@@ -29,10 +30,12 @@
         <input type="text" id="user-input" />
         <input type="button" id="send" value="send" />
 </form>
-<p id="commands-list"><b>Commands:</b><br/>
-  /join &lt;channel&gt;
-  <br/>
-  /leave</p>
+<p id="commands-list"><b>Commands:</b>
+<ul class="commands">
+  <li>/join &lt;channel&gt;</li>
+  <li>/leave</li>
+</ul>
+</p>
 </div>
 <script type="text/javascript" src="relayio.js"></script>
 <script type="text/javascript" src="main.js"></script>

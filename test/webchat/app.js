@@ -45,6 +45,6 @@ function proxy(sock) {
 httpStreamServer.on("connection", proxy);
 wsServer.on("connection", proxy);
 
-process.on('uncaughtException', function (err) {
-  console.log('Caught exception: ' + err);
-});
+// process.on('uncaughtException', function (err) {
+//   console.log('Caught exception: ' + err);
+// });

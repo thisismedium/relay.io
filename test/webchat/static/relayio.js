@@ -17,9 +17,14 @@ Socket Events:
 */
 
 // Events
-var relayio = {};
 
+var relayio = {};
 (function (exports) {
+  
+  var DEBUG = false;
+  function debug (mesg) {
+    if (DEBUG) console.log(mesg);
+  };
 
   function EventEmitter () {
     void(0);
@@ -28,6 +33,7 @@ var relayio = {};
     if (!this._events) this._events = {};
     if (!this._events[event]) this._events[event] = [];
     this._events[event].push(callback);
+    return this;
   };
 
   EventEmitter.prototype.emit = function () {
@@ -38,7 +44,26 @@ var relayio = {};
     for (var i = 0; i < events.length; i++) {
       events[i].apply(this, args);
     }
+    return this;
   };  
+
+  EventEmitter.prototype.removeListener = function (event, listener) {
+    if (this._events[event]) {
+      for (var i = 0; i < this._events[event].length; i++) {
+        if (this._events[event][i] == listener) {
+          delete this._events[event][i];
+        }
+      }
+    }
+    return this;
+  };
+  
+  EventEmitter.prototype.removeAllListeners = function (event) {
+    if (this._events[event]) {
+      this._events[event] = [];
+    }
+    return this;
+  };
 
   // HTTP Socket
 
@@ -82,9 +107,9 @@ var relayio = {};
     var self = this;
 
     var ws = new WebSocket("ws://"+hostname + ((port) ? ":" + port : ":80"));
-    console.log(ws);
+    debug(ws);
     ws.addEventListener("message", function (mesg) {
-      console.log(mesg);
+      debug(mesg);
       self.emit("data",mesg.data);
     });
 
@@ -115,12 +140,33 @@ var relayio = {};
       return name;
     }
 
+    this.getStatus = function (callback) {
+      var mesg = { "type": "GetStatus",
+                   "body": name };
+      parent.send(mesg, function (json) {
+        if (json.type == "Error") {
+          callback(json.body);
+        } else {
+          var clients = [];
+          for (var i = 0; i < json.clients.length; i++) {
+            clients.push(new RelayChannel(json.clients[i], parent));
+          }
+          callback(undefined, clients);
+        }
+      });
+    };
+
+    this.exit = function exit(callback) {
+      var mesg = {"type": "Exit", "body": this.getName() };
+      parent.send(mesg, callback);
+    };
+
     this.send = function send (mesg, callback) {
       var rmesg = {"type": "Message",
                    "to": name,
                    "from": "@me",
                    "body": mesg };
-      console.log(parent);
+      debug(parent);
       parent.send(rmesg, function(json) {
         if (callback) {
           if (json.type == "Error") {
@@ -153,7 +199,7 @@ var relayio = {};
       connection.on("connect", function() {
 
         connection.on("data", function (data) {
-          console.log(" > DATA IN: " + data);
+          debug(" > DATA IN: " + data);
           var json = JSON.parse(data);
           if (json.mesgId && mesg_listeners[json.mesgId]) {
             mesg_listeners[json.mesgId](json);
@@ -198,20 +244,21 @@ var relayio = {};
         mesg.mesgId = id;
         mesg_listeners[id] = callback;
       }
-      console.log(" < DATA OUT: " + JSON.stringify(mesg))
+      debug(" < DATA OUT: " + JSON.stringify(mesg))
       connection.write(JSON.stringify(mesg))
     };
 
     messageDispatcher.on("Message", function(mesg) {
-      console.log(chans);
+      debug(chans);
+      var from = chans[mesg.from] ? chans[mesg.from] : (new RelayChannel(mesg.from, self));
       if (chans[mesg.to])
-        chans[mesg.to].emit("message", mesg.body);
+        chans[mesg.to].emit("message", mesg.body, from);
     });
 
     messageDispatcher.on("ClientEnter", function (mesg) {
-      console.log(chans);
+      debug(chans);
       if (mesg.body.clientId != user_id && chans[mesg.body.channelId]) {
-        console.log(mesg.body.clientId);
+        debug(mesg.body.clientId);
         var new_chan = chans[mesg.body.clientId] ? chans[mesg.body.clientId] : new RelayChannel(mesg.body.clientId, self);
         chans[mesg.body.channelId].emit("client-enter", new_chan);
       }
@@ -223,7 +270,10 @@ var relayio = {};
         chans[mesg.body.channelId].emit("client-exit", new_chan);
       }
     });
-
+    
+    this.getClientId = function () {
+      return user_id;
+    };
 
     this.join = function join (chan, callback) {
       var mesg = { "type": "Join",
