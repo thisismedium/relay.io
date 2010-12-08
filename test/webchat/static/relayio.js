@@ -45,9 +45,10 @@ var relayio = {};
   function HttpSocket (hostname, port) {
 
     var self = this;
+    var session_id;
 
     function readLoop () {
-      $.get("/stream/read", function(data) {
+      $.get("/stream/read/"+session_id, function(data) {
         var parsed = data.split('\x00');
         parsed.reverse();
         for (var i = 0; i < parsed.length; i++) {
@@ -59,13 +60,14 @@ var relayio = {};
 
     function connect() {
       $.get("/stream/open", function(data) {
+        session_id = data;
         readLoop();
         self.emit("connect");
       })  
     };
 
     this.write = this.send = function write (data, callback) {
-      $.post("/stream/write", data, callback);
+      $.post("/stream/write/"+session_id, data, callback);
     };
 
     connect();
