@@ -1,1 +1,1 @@
-../../../http-stream/server.js
+../../deps/http-stream/server.js

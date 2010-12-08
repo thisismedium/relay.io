@@ -119,7 +119,7 @@ function Application (appId, keys) {
   current_client_id = 0;
 
   function newClientId () {
-    return ("client-" + appId + "-" + current_client_id++);
+    return ("@client-" + appId + "-" + (++current_client_id));
   }
 
   ////////////////////////////////////////////////////////////////////////
@@ -173,7 +173,7 @@ function Application (appId, keys) {
         }
 
         // Join the users private channel.
-        joinRoute("@"+client.getClientId(), client);
+        joinRoute(client.getClientId(), client);
 
         // Join the global control channel.
         joinRoute("#global", client);
@@ -225,7 +225,7 @@ function Application (appId, keys) {
         if (client.canWrite()) {
           // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
           // user we tagged in incoming stream with.
-          request.setFrom("@"+client.getClientId())
+          request.setFrom(client.getClientId())
           
           process.nextTick (function () {
             // Send the message to the proper channels.

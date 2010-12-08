@@ -4,3 +4,6 @@
 [submodule "deps/iterator.js"]
 	path = deps/iterator.js
 	url = git@github.com:jamessanders/iterators.js.git
+[submodule "deps/http-stream"]
+	path = deps/http-stream
+	url = git@github.com:jamessanders/http-stream.git

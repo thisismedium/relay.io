@@ -1,6 +1,6 @@
 var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
-var HttpStreamServer      = require("./server").HttpStreamServer;
+var HttpStreamServer      = require("http-stream").HttpStreamServer;
 
 
 var net    = require("net");    
@@ -30,10 +30,11 @@ function proxy(sock) {
     sock.close();
   });
   chan.on("data", function (data) {
+    console.log(" < DATA FROM SERVER: " + JSON.stringify(data.dump()));
     sock.send(JSON.stringify(data.dump()));
   });
   sock.on("message", function (data) {
-    console.log("GOT DATA: " + data);
+    console.log(" > DATA FROM BROWSER: " + data);
     chan.writeRaw(data);
   });
   sock.on("close", function () {

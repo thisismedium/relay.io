@@ -1,5 +1,5 @@
 require("./inherit");
-var iter   = require("./iteratee");
+var iter   = require("iteratee");
 var pack   = require("./utils/pack").pack;
 var Buffer = require("buffer").Buffer;
 var event  = require("events");
@@ -143,7 +143,7 @@ function ApplicationSocketLink (stream) {
     streamE.run(readNBytes(2), function (chan_to_end) {
       chan_to_end = parseN(2, chan_to_end);
       debug("Channels to end: " + chan_to_end);
-      channels[chan_to_end].emit("end");
+      if (channels[chan_to_end]) channels[chan_to_end].emit("end");
       delete channels[chan_to_end];
       modeReader();
     });

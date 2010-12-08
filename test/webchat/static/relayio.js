@@ -80,8 +80,9 @@ var relayio = {};
     var self = this;
 
     var ws = new WebSocket("ws://"+hostname + ((port) ? ":" + port : ":80"));
-
+    console.log(ws);
     ws.addEventListener("message", function (mesg) {
+      console.log(mesg);
       self.emit("data",mesg.data);
     });
 
@@ -97,43 +98,69 @@ var relayio = {};
   WebSocketSocket.prototype = EventEmitter.prototype;
   exports.WebSocketSocket = WebSocketSocket;
 
+  ////////////////////////////////////////////////////////////////////////
+
   function getConnection() {
     return HttpSocket;
+    //return WebSocketSocket;
   };
+
+  ////////////////////////////////////////////////////////////////////////
+  
+  function RelayChannel (name, parent) {
+    
+    this.getName = function getName () {
+      return name;
+    }
+
+    this.send = function send (mesg, callback) {
+      var rmesg = {"type": "Message",
+                   "to": name,
+                   "from": "@me",
+                   "body": mesg };
+      console.log(parent);
+      parent.send(rmesg, function(json) {
+        if (callback) {
+          if (json.type == "Error") {
+            callback(json.body);
+          } else {
+            callback();
+          }
+        }
+      });
+    }
+
+  };
+  RelayChannel.prototype = EventEmitter.prototype;
 
   function RelayClient (app_id, keys) {
     
     var self = this;
-
     var connection;
-    
     var connected = false;
-
     var current_message_id = 0;
-
     var user_id = undefined;
-
     var chans   = {};
-
     var mesg_listeners = {};
-
-    var messageHandler = new EventEmitter();
+    var messageDispatcher = new EventEmitter();
 
     this.connect = function connect (callback) {
 
-      connection = new (getConnection())("magic", 8080);
+      connection = new (getConnection())("localhost", 8080);
 
       connection.on("connect", function() {
 
         connection.on("data", function (data) {
+          console.log(" > DATA IN: " + data);
           var json = JSON.parse(data);
           if (json.mesgId && mesg_listeners[json.mesgId]) {
             mesg_listeners[json.mesgId](json);
             delete mesg_listeners[json.mesgId];
-          } else {
-            self.emit("data", json);
-            messageHandler.emit(json.type, json);
           }
+ 
+          self.emit("data", json);
+          messageDispatcher.emit(json.type, json);
+          
         });
 
         connection.write(JSON.stringify({"type": "Hello",
@@ -141,10 +168,19 @@ var relayio = {};
                                          "keys": keys}));
       });
       
-      messageHandler.on("Welcome", function (json) {
+      messageDispatcher.on("Welcome", function (json) {
+
         connected = true;
         user_id = json.body;
-        callback();
+
+        var private_chan = new RelayChannel(user_id, self);
+        var global_chan  = new RelayChannel("#global", self);
+
+        chans[user_id] = private_chan;
+        chans["#global"] = global_chan;
+
+        callback(global_chan, private_chan);
+
       });
 
       
@@ -154,31 +190,45 @@ var relayio = {};
       return ++current_message_id;
     };
 
-    function send (mesg, callback) {
+    this.send = function send (mesg, callback) {
       if (callback) {
         var id = getNextMessageId();
         mesg.mesgId = id;
         mesg_listeners[id] = callback;
       }
+      console.log(" < DATA OUT: " + JSON.stringify(mesg))
       connection.write(JSON.stringify(mesg))
     };
 
-    messageHandler.on("Message", dispatchMessage);
-
-    function dispatchMessage(mesg) {
-      if (mesg.to == "#global" || mesg.to == user_id) {
-        self.emit("message", mesg.body);
-      } else {
+    messageDispatcher.on("Message", function(mesg) {
+      console.log(chans);
+      if (chans[mesg.to])
         chans[mesg.to].emit("message", mesg.body);
+    });
+
+    messageDispatcher.on("ClientEnter", function (mesg) {
+      console.log(chans);
+      if (mesg.body.clientId != user_id && chans[mesg.body.channelId]) {
+        console.log(mesg.body.clientId);
+        var new_chan = chans[mesg.body.clientId] ? chans[mesg.body.clientId] : new RelayChannel(mesg.body.clientId, self);
+        chans[mesg.body.channelId].emit("client-enter", new_chan);
       }
-    }
+    });
+
+    messageDispatcher.on("ClientExit", function (mesg) {
+      if (mesg.body.clientId != user_id && chans[mesg.body.channelId]) {
+        var new_chan = chans[mesg.body.clientId] ? chans[mesg.body.clientId] : new RelayChannel(mesg.body.clientId, self);
+        chans[mesg.body.channelId].emit("client-exit", new_chan);
+      }
+    });
+
 
     this.join = function join (chan, callback) {
       var mesg = { "type": "Join",
                    "body": chan };
-      send(mesg, function(json) {
+      self.send(mesg, function(json) {
         if (json.type != "Error") {
-          var chanObj = new EventEmitter();
+          var chanObj = new RelayChannel(chan, self);
           chans[chan] = chanObj;
           callback(undefined, chanObj);
         } else {
@@ -197,16 +247,16 @@ var relayio = {};
 /*
 var relay = new RelayClient("my_app", ["write_key","read_key"]);
 
-relay.on("message", function(mesg) {
-  console.log(mesg);
-});
-  
 relay.on("error", function (err) {
   console.debug(err);
 });
 
-relay.connect(function () {
+relay.connect(function (globalchan, privatechan) {
 
+  globalchan.on("message", function(mesg) {
+    console.log(mesg);
+  });
+  
   relay.join("#medium", function(chan) {
 
     chan.getStatus(function(status) {
@@ -221,7 +271,7 @@ relay.connect(function () {
       console.log("Client " + client_id + " has entered.");
     });
     
-    chan.on("client-leave", function (client_id) {
+    chan.on("client-exit", function (client_id) {
       console.log("Client " + client_id + " has left.");
     });
 
