@@ -13,7 +13,8 @@ function simpleServer (request, response) {
     });
 }
 
-var masterConnection = new ApplicationSocketLink(net.createConnection(8124, "localhost"));
+var masterConnection = [new ApplicationSocketLink(net.createConnection(8124, "localhost")), 
+                        new ApplicationSocketLink(net.createConnection(8124, "localhost"))];
 var file             = new(static.Server)('./static');
 var httpServer       = http.createServer(simpleServer);
 var httpStreamServer = new HttpStreamServer(httpServer);
@@ -25,7 +26,7 @@ httpServer.listen(8080, "0.0.0.0");
 
 function proxy(sock) {
   console.log("GOT CONNECTION");
-  var chan = masterConnection.newChannel();
+  var chan = masterConnection[Math.floor(Math.random() * masterConnection.length)].newChannel();
   chan.on("end", function () {
     sock.close();
   });
