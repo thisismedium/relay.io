@@ -73,14 +73,17 @@ var relayio = {};
     var session_id;
 
     function readLoop () {
-      $.get("/stream/read/"+session_id, function(data) {
-        var parsed = data.split('\x00');
-        parsed.reverse();
-        for (var i = 0; i < parsed.length; i++) {
-          if (parsed[i]) self.emit("data", parsed[i]);
-        }
-        readLoop();
-      });
+      $.ajax({ "url": "/stream/read/"+session_id, 
+               "success": function(data) {
+                 var parsed = data.split('\x00');
+                 parsed.reverse();
+                 for (var i = 0; i < parsed.length; i++) {
+                   if (parsed[i]) self.emit("data", parsed[i]);
+                 }
+                 readLoop();
+               },
+               "error": readLoop
+             });
     };
 
     function connect() {
