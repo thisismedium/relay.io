@@ -71,18 +71,22 @@ var relayio = {};
 
     var self = this;
     var session_id;
+    var failures = 0;
 
     function readLoop () {
+      console.log("Starting read");
       $.ajax({ "url": "/stream/read/"+session_id, 
                "success": function(data) {
+                 failures = 0;
                  var parsed = data.split('\x00');
                  parsed.reverse();
                  for (var i = 0; i < parsed.length; i++) {
                    if (parsed[i]) self.emit("data", parsed[i]);
                  }
-                 readLoop();
+                 //readLoop();
                },
-               "error": readLoop
+               "error": function(){ ++failures; console.log("ERROR EVENT") },
+               "complete": function(){if(failures < 5) setTimeout(readLoop,1)}
              });
     };
 
