@@ -67,36 +67,61 @@ var relayio = {};
 
   // HTTP Socket
 
-  function HttpSocket (hostname, port) {
+  function JQueryBackend() {
+    this.get = function get(obj) {
+      $.ajax({ "url": obj.url,
+               "success": obj.success,
+               "complete": obj.complete
+             });
+    };
+    this.post = function post(obj) {
+      $.ajax({ "type": 'POST',
+               "url": obj.url,
+               "success": obj.success,
+               "complete": obj.complete,
+               "data": obj.data
+             });
+    };
+  };
+
+  function HttpSocket (hostname, port, backend) {
 
     var self = this;
     var session_id;
     var failures = 0;
 
     function readLoop () {
-      $.ajax({ "url": "/stream/read/"+session_id, 
-               "success": function(data) {
-                 failures = 0;
-                 var parsed = data.split('\x00');
-                 parsed.reverse();
-                 for (var i = 0; i < parsed.length; i++) {
-                   if (parsed[i]) self.emit("data", parsed[i]);
-                 }
-               },
-               "complete": function(){if(failures < 5) setTimeout(readLoop,1)}
-             });
+      backend.get({ 
+        "url": "/stream/read/"+session_id, 
+        "success": function(data) {
+          failures = 0;
+          var parsed = data.split('\x00');
+          parsed.reverse();
+          for (var i = 0; i < parsed.length; i++) {
+            if (parsed[i]) self.emit("data", parsed[i]);
+          }
+        },
+        "complete": function(){if(failures < 5) setTimeout(readLoop,1)}
+      });
     };
 
     function connect() {
-      $.get("/stream/open", function(data) {
-        session_id = data;
-        readLoop();
-        self.emit("connect");
-      })  
+      backend.get({
+        "url": "/stream/open",
+        "success": function(data) {
+          session_id = data;
+          readLoop();
+          self.emit("connect");
+        }
+      });
     };
-
+    
     this.write = this.send = function write (data, callback) {
-      $.post("/stream/write/"+session_id, data, callback);
+      backend.post({
+        "url":"/stream/write/"+session_id, 
+        "data": data, 
+        "success": callback
+      });
     };
 
     connect();
@@ -132,7 +157,7 @@ var relayio = {};
   ////////////////////////////////////////////////////////////////////////
 
   function getConnection() {
-    return HttpSocket;
+    return new HttpSocket("localhost", 8080, new JQueryBackend());
     //return WebSocketSocket;
   };
 
@@ -198,7 +223,7 @@ var relayio = {};
 
     this.connect = function connect (callback) {
 
-      connection = new (getConnection())("localhost", 8080);
+      connection = getConnection();
 
       connection.on("connect", function() {
 
