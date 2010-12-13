@@ -163,6 +163,55 @@ var relayio = {};
 
   ////////////////////////////////////////////////////////////////////////
   
+  var MessageWrapper = function () {}
+  MessageWrapper.prototype.dump = function () {
+    return { 
+      "type": this.type,
+      "body": this.body 
+    };
+  };
+
+  function $message (fn) {
+    fn.prototype = MessageWrapper.prototype;
+    return fn;
+  };
+
+  var Hello = $message(function(app_id, keys) {
+    this.type = "Hello";
+    this.body = { 
+      "appId": app_id,
+      "keys": keys 
+    }
+  });
+
+  var GetStatus = $message(function (address) {
+    this.type = "GetStatus";
+    this.body = { "address": address }
+  });
+    
+  var Message = $message(function (to, body) {
+    this.type = "Message";
+    this.dump = function () {
+      return {"type": this.type,
+              "from": "@me",
+              "to"  : to,
+              "body": body }
+    };
+  });
+
+  var Join = $message(function(channel) {
+    this.type = "Join";
+    this.body = {"address": channel};
+  });
+
+  var Exit = $message(function(channel) {
+    this.type = "Exit";
+    this.body = {"address": channel };
+  });
+
+  ////////////////////////////////////////////////////////////////////////
+
+  
   function RelayChannel (name, parent) {
     
     this.getName = function getName () {
@@ -170,15 +219,14 @@ var relayio = {};
     }
 
     this.getStatus = function (callback) {
-      var mesg = { "type": "GetStatus",
-                   "body": name };
+      var mesg = new GetStatus(name);
       parent.send(mesg, function (json) {
         if (json.type == "Error") {
           callback(json.body);
         } else {
           var clients = [];
-          for (var i = 0; i < json.clients.length; i++) {
-            clients.push(new RelayChannel(json.clients[i], parent));
+          for (var i = 0; i < json.body.clientsList.length; i++) {
+            clients.push(new RelayChannel(json.body.clientsList[i], parent));
           }
           callback(undefined, clients);
         }
@@ -186,15 +234,12 @@ var relayio = {};
     };
 
     this.exit = function exit(callback) {
-      var mesg = {"type": "Exit", "body": this.getName() };
+      var mesg = new Exit(this.getName());
       parent.send(mesg, callback);
     };
 
     this.send = function send (mesg, callback) {
-      var rmesg = {"type": "Message",
-                   "to": name,
-                   "from": "@me",
-                   "body": mesg };
+      var rmesg = new Message(name, mesg);
       debug(parent);
       parent.send(rmesg, function(json) {
         if (callback) {
@@ -209,6 +254,7 @@ var relayio = {};
 
   };
   RelayChannel.prototype = EventEmitter.prototype;
+
 
   function RelayClient (app_id, keys) {
     
@@ -240,15 +286,13 @@ var relayio = {};
           
         });
 
-        connection.write(JSON.stringify({"type": "Hello",
-                                         "body": app_id,
-                                         "keys": keys}));
+        self.send(new Hello(app_id, keys));
       });
       
       messageDispatcher.on("Welcome", function (json) {
 
         connected = true;
-        user_id = json.body;
+        user_id = json.body.clientId;
 
         var private_chan = new RelayChannel(user_id, self);
         var global_chan  = new RelayChannel("#global", self);
@@ -268,6 +312,8 @@ var relayio = {};
     };
 
     this.send = function send (mesg, callback) {
+      console.log(mesg);
+      var mesg = mesg.dump();
       if (callback) {
         var id = getNextMessageId();
         mesg.mesgId = id;
@@ -305,8 +351,7 @@ var relayio = {};
     };
 
     this.join = function join (chan, callback) {
-      var mesg = { "type": "Join",
-                   "body": chan };
+      var mesg = new Join(chan);
       self.send(mesg, function(json) {
         if (json.type != "Error") {
           var chanObj = new RelayChannel(chan, self);

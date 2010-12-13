@@ -20,7 +20,7 @@ var httpServer       = http.createServer(simpleServer);
 var httpStreamServer = new HttpStreamServer(httpServer);
 var wsServer         = new WebSocketWrapper(httpServer);
 
-httpServer.listen(8080, "0.0.0.0");
+httpServer.listen(process.argv[2], "0.0.0.0");
 
 // proxy websocket connection directly to our backend...
 

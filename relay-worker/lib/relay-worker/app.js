@@ -17,10 +17,11 @@ var server = net.createServer(function (raw_stream) {
   app_stream.on("channel", function (stream) {
     stream.on('data', function (obj) {
       if (obj.getType() == "Hello") {
-        if (!apps[obj.getBody()]) {
+        var appId = obj.getBody().getAppId();
+        if (!apps[appId]) {
           stream.write(new api.InvalidApplicationError());
         } else {
-          apps[obj.getBody()].assumeStream(stream);
+          apps[appId].assumeStream(stream);
           stream.emit("data", obj);
         }
       } else {

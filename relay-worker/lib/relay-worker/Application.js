@@ -189,13 +189,13 @@ function Application (appId, keys) {
       // Client said "Join", the client wants to join a channel to listen for updates
 
       "Join" : function () {
-        if (client.canRead() && joinRoute(request.getBody(), client)) {
-
-          if (!request.getBody().match("^#[a-zA-Z1-9]*$")) {
+        var addr = request.getBody().getAddress();
+        if (client.canRead() && joinRoute(addr, client)) {
+          if (!addr.match("^#[a-zA-Z1-9]*$")) {
             request.replyWith(new api.PermissionDeniedError()).sendTo(client);
           } else {
             // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
-            sendMessageToRoute(request.getBody(), new api.ClientEnter(client.getClientId(), request.getBody()));            
+            sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
             // Inform the client of a successful "Join".
             request.replyWith(new api.Success()).sendTo(client);
           }
@@ -205,17 +205,20 @@ function Application (appId, keys) {
       },
 
       "GetStatus" : function () {
-        var route = request.getChannelId();
+        var route = request.getBody().getAddress();
         if (routes[route]) {
           request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())).sendTo(client);
+        } else {
+          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
         }
       },
 
       // Client said "Leave" and wanted to leave a room.
 
       "Exit" : function () {
-        removeSubscriber(request.getBody(), client);
-        sendMessageToRoute(request.getBody(), new api.ClientExit(client.getClientId(), request.getBody()));
+        var addr = request.getBody().getAddress();
+        removeSubscriber(addr, client);
+        sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
         request.replyWith(new api.Success()).sendTo(client);
       },
 
