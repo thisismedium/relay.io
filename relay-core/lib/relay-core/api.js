@@ -128,12 +128,14 @@ function autoMessage (fn) {
   exports.Hello = autoMessage (function(app_id, keys) {
     this.load({
       "type": "Hello",
-      "body": app_id,
-      "keys": keys
+      "body": { 
+        "keys": keys, 
+        "appId": app_id 
+      }
     });
     this.getKeys = function () {
-      if (this._data_.keys) {
-        return this._data_.keys;
+      if (this._data_.body.keys) {
+        return this._data_.body.keys;
       } else {
         return undefined;
       }
@@ -144,7 +146,9 @@ function autoMessage (fn) {
     this.load({
       "status": ST_SUCCESS,
       "type": "Welcome",
-      "body": client_id
+      "body": {
+        "clientId": client_id
+      }
     });
 
     this.getClientId = function () {
@@ -158,33 +162,47 @@ function autoMessage (fn) {
   exports.Join = autoMessage (function (address, keys) {
     this.load({
       "type": "Join",
-      "body": address,
-      "keys": keys
+      "body": {
+        "address": address,
+        "keys": keys
+      }
     });
   });
 
   exports.Exit = autoMessage (function(address) {
-    this.load({ "type":"Exit", "body":address });  
+    this.load({
+      "type":"Exit", 
+      "body": {
+        "address": address 
+      }
+    });  
   });
 
 
   exports.ClientEnter = autoMessage(function(client_id, channel) {
     this.load({ "type": "ClientEnter", 
-                "body": { "clientId": client_id,
-                          "channelId": channel }
+                "body": { 
+                  "clientId": client_id,
+                  "channelId": channel }
               });
   });
 
   exports.ClientExit = autoMessage(function(client_id, channel) {
-    this.load({ "type": "ClientExit", 
-                "body": { "clientId": client_id,
-                          "channelId": channel }
-              });
+    this.load({ 
+      "type": "ClientExit", 
+      "body": { 
+        "clientId": client_id,
+        "channelId": channel }
+    });
   });
 
   exports.GetStatus = autoMessage(function(channel) {
-    this.load({"type": "GetStatus",
-               "body": channel});
+    this.load({
+      "type": "GetStatus",
+      "body": { 
+        "address": channel
+      }
+    });
     this.getChannelId = function () {
       return this.getBody();
     }
@@ -192,8 +210,11 @@ function autoMessage (fn) {
   
   exports.ResourceStatus = autoMessage(function(channel, clients) {
     this.load({"type": "ResourceStatus",
-               "channel": channel,
-               "clients": clients});
+               "body": {
+                 "channelId": channel,
+                 "clientsList": clients
+               }
+              });
   });
 
   // Message - a message
