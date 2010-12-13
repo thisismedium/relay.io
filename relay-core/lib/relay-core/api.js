@@ -51,6 +51,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
  */
 
 // autoMessage wraps autoRecord and adds a few methods...
+
 function autoMessage (fn) {
   return autoRecord(function () {
     this.replyWith = function (replyMesg) {
@@ -152,7 +153,7 @@ function autoMessage (fn) {
     });
 
     this.getClientId = function () {
-      return this.getBody();
+      return this.getBody().getClientId();
     }
     
   });
@@ -167,6 +168,8 @@ function autoMessage (fn) {
         "keys": keys
       }
     });
+    this.getAddress = function () { return this.getBody().getAddress() }
+    this.getKeys    = function () { return this.getBody().getKeys() }
   });
 
   exports.Exit = autoMessage (function(address) {
@@ -176,6 +179,7 @@ function autoMessage (fn) {
         "address": address 
       }
     });  
+    this.getAddress = function () { return this.getBody().getAddress() }
   });
 
 

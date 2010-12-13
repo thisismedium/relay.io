@@ -1,3 +1,6 @@
+var serverMedium = require("servermedium");
+var settings = serverMedium.requireHostSettings();
+
 var Application = require("./Application").Application;
 var Key         = require("./Key").Key;
 
@@ -32,7 +35,7 @@ var server = net.createServer(function (raw_stream) {
   });
 });
 
-server.listen(8124, 'localhost');
+server.listen(settings.port, settings.host);
 
 
 /*
