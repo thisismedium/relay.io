@@ -64,7 +64,6 @@ function ApplicationSocketLink (stream) {
 
   var MODE_MESG = 1;
   var MODE_END  = 2;
-  var MODE_FORK = 3;
 
   var self = this;
   var top  = this;
@@ -112,7 +111,6 @@ function ApplicationSocketLink (stream) {
 
   var mode_handlers = {};
   mode_handlers[MODE_MESG] = mesgHandler;
-  mode_handlers[MODE_FORK] = forkHandler;
   mode_handlers[MODE_END]  = endHandler;
 
   // The reader is always the starting place...
@@ -124,20 +122,6 @@ function ApplicationSocketLink (stream) {
     });
   };
   
-  // The client has sent a fork signal
-  function forkHandler () {
-    streamE.run(readNBytes(2), function (chan_to_fork) {
-      streamE.run(readNBytes(2), function (new_chan) {
-        chan_to_fork = channels[parseN(2, chan_to_fork)];
-        new_chan     = new SocketChannel(parseN(2, new_chan));
-        debug("FORKING " + chan_to_fork.getId() + " to " + new_chan.getId());
-        chan_to_fork.emit("fork", new_chan);
-        channels[new_chan.getId()] = new_chan;
-        modeReader();
-      });
-    });
-  };
-
   // The client has sent an end signal
   function endHandler () {
     streamE.run(readNBytes(2), function (chan_to_end) {
@@ -169,7 +153,7 @@ function ApplicationSocketLink (stream) {
             try {
               var json = JSON.parse(mesg.toString('utf8'));
             } catch (e) {
-              self.emit("error",e);
+              self.emit("error", e);
             }
 
             chans.forEach(function(chan_id) {
@@ -247,14 +231,6 @@ function ApplicationSocketLink (stream) {
       var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
       doWrite(buf);
       // removeChannel(id);
-    };
-
-    this.fork = function () {
-      var new_chan = top.newChannel();
-      var buf = new Buffer(pack('Cnn', MODE_FORK, self.getId(), new_chan.getId()), 'binary');
-      doWrite(buf);
-      channels[new_chan.getId()] = new_chan;
-      return new_chan;
     };
 
     this.write = function (obj) { 
