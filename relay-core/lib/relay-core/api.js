@@ -52,7 +52,7 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
 // autoMessage wraps autoRecord and adds a few methods...
 
-function autoMessage (fn) {
+function $autoMessage (fn) {
   return autoRecord(function () {
     this.replyWith = function (replyMesg) {
       if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
@@ -96,7 +96,7 @@ function autoMessage (fn) {
 
   // Errors...
 
-  exports.Error = autoMessage(function (error_code, error_message) {
+  exports.Error = $autoMessage(function (error_code, error_message) {
     this.load( { "type": "Error",
                  "status": error_code ? error_code : ST_ERROR,
                  "body"  : error_message ? error_message : "" });
@@ -119,14 +119,14 @@ function autoMessage (fn) {
 
   // General Success Message...
 
-  exports.Success = autoMessage(function () {
+  exports.Success = $autoMessage(function () {
     this.load({"type": "Success",
                "status": ST_SUCCESS});
   });
 
   // Hello - Initialize a connection
 
-  exports.Hello = autoMessage (function(app_id, keys) {
+  exports.Hello = $autoMessage (function(app_id, keys) {
     this.load({
       "type": "Hello",
       "body": { 
@@ -143,7 +143,7 @@ function autoMessage (fn) {
     }
   });
   
-  exports.Welcome = autoMessage (function (client_id) {
+  exports.Welcome = $autoMessage (function (client_id) {
     this.load({
       "status": ST_SUCCESS,
       "type": "Welcome",
@@ -151,7 +151,6 @@ function autoMessage (fn) {
         "clientId": client_id
       }
     });
-
     this.getClientId = function () {
       return this.getBody().getClientId();
     }
@@ -160,7 +159,7 @@ function autoMessage (fn) {
 
   // Join - Listen for messages
 
-  exports.Join = autoMessage (function (address, keys) {
+  exports.Join = $autoMessage (function (address, keys) {
     this.load({
       "type": "Join",
       "body": {
@@ -172,7 +171,7 @@ function autoMessage (fn) {
     this.getKeys    = function () { return this.getBody().getKeys() }
   });
 
-  exports.Exit = autoMessage (function(address) {
+  exports.Exit = $autoMessage (function(address) {
     this.load({
       "type":"Exit", 
       "body": {
@@ -183,7 +182,7 @@ function autoMessage (fn) {
   });
 
 
-  exports.ClientEnter = autoMessage(function(client_id, channel) {
+  exports.ClientEnter = $autoMessage(function(client_id, channel) {
     this.load({ "type": "ClientEnter", 
                 "body": { 
                   "clientId": client_id,
@@ -191,7 +190,7 @@ function autoMessage (fn) {
               });
   });
 
-  exports.ClientExit = autoMessage(function(client_id, channel) {
+  exports.ClientExit = $autoMessage(function(client_id, channel) {
     this.load({ 
       "type": "ClientExit", 
       "body": { 
@@ -200,7 +199,7 @@ function autoMessage (fn) {
     });
   });
 
-  exports.GetStatus = autoMessage(function(channel) {
+  exports.GetStatus = $autoMessage(function(channel) {
     this.load({
       "type": "GetStatus",
       "body": { 
@@ -212,7 +211,7 @@ function autoMessage (fn) {
     }
   });
   
-  exports.ResourceStatus = autoMessage(function(channel, clients) {
+  exports.ResourceStatus = $autoMessage(function(channel, clients) {
     this.load({"type": "ResourceStatus",
                "body": {
                  "channelId": channel,
@@ -223,7 +222,7 @@ function autoMessage (fn) {
 
   // Message - a message
 
-  exports.Message = autoMessage (function (to, from, body) {
+  exports.Message = $autoMessage (function (to, from, body) {
     this.load({
       "type": "Message",
       "to": to,
@@ -235,7 +234,7 @@ function autoMessage (fn) {
 
   // InvalidMessage
 
-  exports.InvalidMessage = autoMessage(function(mesg) {
+  exports.InvalidMessage = $autoMessage(function(mesg) {
     this.load({"type": "InvalidMessage", "message": mesg });
     this.getMesgId = function () {
       return mesg.mesgId;
@@ -276,4 +275,15 @@ function autoMessage (fn) {
     else
       return (new cons()).load(data)
   };
+
+  exports.runRPC = function (envObj) {
+    return function (data) {
+      if (envObj["log"]) envObj["log"](data);
+      if (envObj[data.getType()])
+        envObj[data.getType()](data);
+      else
+        envObj["InvalidRequest"](request);
+    };
+  };
+
 })(exports)

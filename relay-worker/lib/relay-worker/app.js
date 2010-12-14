@@ -15,27 +15,50 @@ var apps = {
                            new Key("write_key", api.PERM_WRITE)])
 };
 
-var server = net.createServer(function (raw_stream) {
-  var app_stream = new ApplicationSocketLink(raw_stream);
-  app_stream.on("channel", function (stream) {
-    stream.on('data', function (obj) {
-      if (obj.getType() == "Hello") {
-        var appId = obj.getBody().getAppId();
-        if (!apps[appId]) {
-          stream.write(new api.InvalidApplicationError());
-        } else {
-          apps[appId].assumeStream(stream);
-          stream.emit("data", obj);
-        }
+var RelayBaseStation = function () {
+  
+  function RelayBaseStationRPC (stream) {
+
+    this.log = function (data) {
+      console.log(data.getType());
+    };
+
+    this.Hello = function (request) {
+      var appId = request.getBody().getAppId();
+      if (!apps[appId]) {
+        stream.write(new api.InvalidApplicationError());
       } else {
-        console.log("Got a non Hello request");
-        stream.end();
+        apps[appId].assumeStream(stream);
+        stream.emit("data", request);
       }
+    }
+
+    this.InvalidRequest = function (request) {
+      console.log("Got a non Hello request");
+      stream.end();
+    }
+
+  }
+
+  var server = net.createServer(function (raw_stream) {
+    var app_stream = new ApplicationSocketLink(raw_stream);
+    app_stream.on("channel", function (stream) {
+      stream.on('data', api.runRPC(new RelayBaseStationRPC(stream)));
     });
   });
-});
+  
+  this.listen = function (port, host) {
+    server.listen(port, host);
+  }
 
-server.listen(settings.port, settings.host);
+};
+
+
+var port = process.argv[3] ? process.argv[3] : 8124;
+var host = process.argv[2] ? process.argv[2] : "localhost";
+console.log("Starting RelayBaseStation listening on port: " + port + " host: " + host);
+var app = (new RelayBaseStation()).listen(port, host);;
+
 
 
 /*

@@ -125,14 +125,12 @@ function Application (appId, keys) {
   ////////////////////////////////////////////////////////////////////////
 
   // Application.assumeStream - give an application control over a socket
-  this.assumeStream = function assumeStream (app_stream, client) {
+  this.assumeStream = function assumeStream (app_stream) {
 
-    if (!client) client = new Client(newClientId(), app_stream, 0);
+    var client = new Client(newClientId(), app_stream, 0);
 
     app_stream.removeAllListeners("data");
-    app_stream.on("data", function (data) {
-      processRequest (data, client);
-    });
+    app_stream.on("data",  api.runRPC(new ApplicationRPC(client)));
 
     app_stream.on("close", function () {
       app_stream.destroy();
@@ -155,99 +153,96 @@ function Application (appId, keys) {
     return undefined;
   };
 
-  function processRequest(request, client) {
-    var calls = { 
-      
-      // Client said "Hello", they are brand new to the world...
+  function ApplicationRPC (client) {
 
-      "Hello" : function () {
+    // Client said "Hello", they are brand new to the world...
+    this.Hello = function (request) {
 
-        // If the request includes keys setup new permissions for the user.
-        if (request.getKeys()) {
-          request.getKeys().forEach(function(key){
-            var real_key = getKeyByHash(key);
-            if (real_key) {
-              client.setPerms(real_key.getPerms());
-            }
-          });
-        }
-
-        // Join the users private channel.
-        joinRoute(client.getClientId(), client);
-
-        // Join the global control channel.
-        joinRoute("#global", client);
-
-        // Inform the client about their client_id.
-        request.replyWith(new api.Welcome(client.getClientId())).sendTo(client);
-
-        // Inform the global channel of the clients activation.
-        sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
-        
-      },
-
-      // Client said "Join", the client wants to join a channel to listen for updates
-
-      "Join" : function () {
-        var addr = request.getBody().getAddress();
-        if (client.canRead() && joinRoute(addr, client)) {
-          if (!addr.match("^#[a-zA-Z1-9]*$")) {
-            request.replyWith(new api.PermissionDeniedError()).sendTo(client);
-          } else {
-            // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
-            sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
-            // Inform the client of a successful "Join".
-            request.replyWith(new api.Success()).sendTo(client);
+      // If the request includes keys setup new permissions for the user.
+      if (request.getKeys()) {
+        request.getKeys().forEach(function(key){
+          var real_key = getKeyByHash(key);
+          if (real_key) {
+            client.setPerms(real_key.getPerms());
           }
-        } else {
+        });
+      }
+
+      // Join the users private channel.
+      joinRoute(client.getClientId(), client);
+
+      // Join the global control channel.
+      joinRoute("#global", client);
+
+      // Inform the client about their client_id.
+      request.replyWith(new api.Welcome(client.getClientId())).sendTo(client);
+
+      // Inform the global channel of the clients activation.
+      sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
+        
+    }
+
+    // Client said "Join", the client wants to join a channel to listen for updates
+
+    this.Join = function (request) {
+      var addr = request.getBody().getAddress();
+      if (client.canRead() && joinRoute(addr, client)) {
+        if (!addr.match("^#[a-zA-Z1-9]*$")) {
           request.replyWith(new api.PermissionDeniedError()).sendTo(client);
-        }
-      },
-
-      "GetStatus" : function () {
-        var route = request.getBody().getAddress();
-        if (routes[route]) {
-          request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())).sendTo(client);
         } else {
-          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+          // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
+          sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
+          // Inform the client of a successful "Join".
+          request.replyWith(new api.Success()).sendTo(client);
         }
-      },
-
-      // Client said "Leave" and wanted to leave a room.
-
-      "Exit" : function () {
-        var addr = request.getBody().getAddress();
-        removeSubscriber(addr, client);
-        sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
-        request.replyWith(new api.Success()).sendTo(client);
-      },
-
-      // The client as sent us a "Message", we need to route it to the right users.
-      "Message" : function () {
-
-        if (client.canWrite()) {
-          // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
-          // user we tagged in incoming stream with.
-          request.setFrom(client.getClientId())
-          
-          process.nextTick (function () {
-            // Send the message to the proper channels.
-            sendMessageToRoute(request.getTo(), request);
-
-            // Inform the client that their message has been delivered.
-            request.replyWith(new api.Success()).sendTo(client);
-          });
-        } else {
-          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
-        }
-      },
-
-      "InvalidMessage" : function () {
-        request.replyWith(new api.InvalidRequestError()).sendTo(client);
+      } else {
+        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
       }
     }
-    calls[request.getType()]();
+
+    this.GetStatus = function (request) {
+      var route = request.getBody().getAddress();
+      if (routes[route]) {
+        request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())).sendTo(client);
+      } else {
+        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+      }
+    }
+
+    // Client said "Leave" and wanted to leave a room.
+
+    this.Exit = function (request) {
+      var addr = request.getBody().getAddress();
+      removeSubscriber(addr, client);
+      sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
+      request.replyWith(new api.Success()).sendTo(client);
+    }
+
+    // The client as sent us a "Message", we need to route it to the right users.
+    this.Message = function (request) {
+
+      if (client.canWrite()) {
+        // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
+        // user we tagged in incoming stream with.
+        request.setFrom(client.getClientId())
+          
+        process.nextTick (function () {
+          // Send the message to the proper channels.
+                            sendMessageToRoute(request.getTo(), request);
+                            // Inform the client that their message has been delivered.
+                            request.replyWith(new api.Success()).sendTo(client);
+        });
+      } else {
+        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+      }
+    }
+
+    this.InvalidRequest = function (request) {
+      request.replyWith(new api.InvalidRequestError()).sendTo(client);
+    };
+
   };
+
 
   ////////////////////////////////////////////////////////////////////////
 
