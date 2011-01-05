@@ -1,0 +1,10 @@
+{
+  "name": "relay-carrier",
+  "description": "",
+  "version": "0.0.1",
+  "author": "James Sanders",
+  "dependencies": {},
+  "directories": { "lib": "lib/relay-carrier" },
+  "bin": {"relay-carrier": "bin/relay-carrier"},
+  "engines": { "node": ">= 0.2.4" }
+}

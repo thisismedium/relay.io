@@ -7,3 +7,6 @@
 [submodule "deps/http-stream"]
 	path = deps/http-stream
 	url = git@github.com:jamessanders/http-stream.git
+[submodule "deps/node-static"]
+	path = deps/node-static
+	url = git://github.com/jamessanders/node-static.git
