@@ -15,9 +15,9 @@ var apps = {
                            new Key("write_key", api.PERM_WRITE)])
 };
 
-var RelayBaseStation = function () {
+var RelayStation = function () {
   
-  function RelayBaseStationRPC (stream) {
+  function RelayStationRPC (stream) {
 
     this.log = function (data) {
       console.log(data.getType());
@@ -43,7 +43,7 @@ var RelayBaseStation = function () {
   var server = net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
-      stream.on('data', api.runRPC(new RelayBaseStationRPC(stream)));
+      stream.on('data', api.runRPC(new RelayStationRPC(stream)));
     });
   });
   
@@ -54,12 +54,12 @@ var RelayBaseStation = function () {
 };
 
 
-var port = process.argv[3] ? process.argv[3] : 8124;
-var host = process.argv[2] ? process.argv[2] : "localhost";
-console.log("Starting RelayBaseStation listening on port: " + port + " host: " + host);
-var app = (new RelayBaseStation()).listen(port, host);;
-
-
+exports.app = function () {
+  var port = process.argv[3] ? process.argv[3] : 8124;
+  var host = process.argv[2] ? process.argv[2] : "localhost";
+  console.log("Starting RelayStation listening on port: " + port + " host: " + host);
+  (new RelayStation()).listen(port, host);
+}
 
 /*
 process.on('uncaughtException', function (err) {
