@@ -2,101 +2,103 @@ var api                   = require("relay-core/api");
 var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket;
 var Key                   = require("./Key").Key;
 
-// Route (a.k.a Channel) ///////////////////////
-
-function Route (name) {
-
-  var subscribers = [];
-
-  this.getName = function getName () {
-    return name;
-  }
-
-  this.addSubscriber = function addSubscriber (client) {
-    for (var i = 0; i < subscribers.length; i++) {
-      if (subscribers[i].getClientId() == client.getClientId()) {
-        return false;
-      }
-    }
-    subscribers.push(client);
-    return true;
-  };
-
-  this.listSubscribers = function listSubscribers () {
-    return subscribers.map(function(subscriber) {
-      return subscriber.getClientId();
-    });
-  };
-
-  this.removeSubscriber = function removeSubscriber (client) {
-    var out = [];
-    var res = subscribers;
-    console.log(res.length);
-    for (var i = 0; i < res.length; i++) {
-      if (res[i].getClientId() != client.getClientId()) out.push(res[i]);
-    }
-    subscribers = out;
-    console.log(out.length);
-  };
-
-  this.write = function write (mesg) {
-    var streams = subscribers.map(function (s) { return s.getStream() });
-    groupChannelsBySocket(streams).forEach(function(sub) {
-      sub[0].multiWrite(sub, mesg);
-    });
-  }
-
-};
-
-// Client ///////////////////////////////////
-
-/* 
-   a Client is a user of the application, when a client initializes a
-   session it is given a client-id...
-
- */
-function Client (client_id, stream, perms) {
-
-  this.canWrite = function canWrite () {
-    console.log("WRITE: " + api.PERM_WRITE & perms);
-    return api.PERM_WRITE & perms
-  };
-
-  this.canRead = function canRead () {
-    return api.PERM_READ & perms
-  };
-
-  this.resetPerms = function resetPerms () {
-    perms = 0;
-    return this;
-  };
-
-  this.setPerms = function setPerms (p) {
-    perms = p | perms;
-    return this;
-  };
-
-  this.getClientId = function getClientId() {
-    return client_id;
-  };
-
-  this.getStream = function getString () {
-    return stream;
-  };
-
-  this.getSocket = function getSocket () {
-    return stream.getSocket();
-  };
-
-  this.write = function write(data) {
-    return stream.write(data);
-  };
-
-}
-
 // Application ////////////////////////////////////////////////////////////
 
 function Application (appId, keys) {
+
+  // Route (a.k.a Channel) ///////////////////////
+
+  function Route (name) {
+
+    var subscribers = [];
+
+    this.getName = function getName () {
+      return name;
+    }
+
+    this.addSubscriber = function addSubscriber (client) {
+      for (var i = 0; i < subscribers.length; i++) {
+        if (subscribers[i].getClientId() == client.getClientId()) {
+          return false;
+        }
+      }
+      subscribers.push(client);
+      return true;
+    };
+
+    this.listSubscribers = function listSubscribers () {
+      return subscribers.map(function(subscriber) {
+        return subscriber.getClientId();
+      });
+    };
+
+    this.removeSubscriber = function removeSubscriber (client) {
+      var out = [];
+      var res = subscribers;
+      console.log(res.length);
+      for (var i = 0; i < res.length; i++) {
+        if (res[i].getClientId() != client.getClientId()) out.push(res[i]);
+      }
+      subscribers = out;
+      console.log(out.length);
+    };
+
+    this.send = this.write = function send (mesg) {
+      var streams = subscribers.map(function (s) { return s.getStream() });
+      groupChannelsBySocket(streams).forEach(function(sub) {
+        sub[0].multiWrite(sub, mesg);
+      });
+    }
+
+  };
+
+  // Client ///////////////////////////////////
+  
+  /* 
+     a Client is a user of the application, when a client initializes a
+     session it is given a client-id...
+  */
+  
+  function Client (client_id, stream, perms) {
+
+    this.canWrite = function canWrite () {
+      console.log("WRITE: " + api.PERM_WRITE & perms);
+      return api.PERM_WRITE & perms
+    };
+
+    this.canRead = function canRead () {
+      return api.PERM_READ & perms
+    };
+
+    this.resetPerms = function resetPerms () {
+      perms = 0;
+      return this;
+    };
+
+    this.setPerms = function setPerms (p) {
+      perms = p | perms;
+      return this;
+    };
+
+    this.getClientId = function getClientId() {
+      return client_id;
+    };
+
+    this.getStream = function getString () {
+      return stream;
+    };
+
+    this.getSocket = function getSocket () {
+      return stream.getSocket();
+    };
+
+    this.send = this.write = function write(data) {
+      return stream.send(data);
+    };
+
+  }
+
+  ////////////////////////////////////////////////////////////////////////
 
   var self = this;
 
@@ -114,9 +116,8 @@ function Application (appId, keys) {
   // all application have a #global channel.  The global channel acts
   // as a control channel for the entire application.
 
-  routes = { "#global": new Route("#global") };
-
-  current_client_id = 0;
+  var routes = { "#global": new Route("#global") };
+  var current_client_id = 0;
 
   function newClientId () {
     return ("@client-" + appId + "-" + (++current_client_id));
@@ -127,8 +128,13 @@ function Application (appId, keys) {
   // Application.assumeStream - give an application control over a socket
   this.assumeStream = function assumeStream (app_stream) {
 
+    // The RelayStation has told the application to assume control of the message
+    // stream, we assume the client is brand new so we need to create a new client
+    // object to track this user under.
+
     var client = new Client(newClientId(), app_stream, 0);
 
+    // and assume the stream...
     app_stream.removeAllListeners("data");
     app_stream.on("data",  api.runRPC(new ApplicationRPC(client)));
 
@@ -153,6 +159,8 @@ function Application (appId, keys) {
     return undefined;
   };
 
+  ////////////////////////////////////////////////////////////////////////
+
   function ApplicationRPC (client) {
 
     // Client said "Hello", they are brand new to the world...
@@ -175,7 +183,7 @@ function Application (appId, keys) {
       joinRoute("#global", client);
 
       // Inform the client about their client_id.
-      request.replyWith(new api.Welcome(client.getClientId())).sendTo(client);
+      client.send(request.replyWith(new api.Welcome(client.getClientId())));
 
       // Inform the global channel of the clients activation.
       sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
@@ -193,19 +201,19 @@ function Application (appId, keys) {
           // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
           sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
           // Inform the client of a successful "Join".
-          request.replyWith(new api.Success()).sendTo(client);
+          client.send(request.replyWith(new api.Success()));
         }
       } else {
-        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+        client.send(request.replyWith(new api.PermissionDeniedError()));
       }
     }
 
     this.GetStatus = function (request) {
       var route = request.getBody().getAddress();
       if (routes[route]) {
-        request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())).sendTo(client);
+        client.send(request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())));
       } else {
-        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+        client.send(request.replyWith(new api.PermissionDeniedError()));
       }
     }
 
@@ -215,7 +223,7 @@ function Application (appId, keys) {
       var addr = request.getBody().getAddress();
       removeSubscriber(addr, client);
       sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
-      request.replyWith(new api.Success()).sendTo(client);
+      client.send(request.replyWith(new api.Success()));
     }
 
     // The client as sent us a "Message", we need to route it to the right users.
@@ -228,12 +236,12 @@ function Application (appId, keys) {
           
         process.nextTick (function () {
           // Send the message to the proper channels.
-                            sendMessageToRoute(request.getTo(), request);
-                            // Inform the client that their message has been delivered.
-                            request.replyWith(new api.Success()).sendTo(client);
+          sendMessageToRoute(request.getTo(), request);
+          // Inform the client that their message has been delivered.
+          client.send(request.replyWith(new api.Success()));
         });
       } else {
-        request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+        client.send(new api.PermissionDeniedError());
       }
     }
 
@@ -281,7 +289,7 @@ function Application (appId, keys) {
 
   function sendMessageToRoute(resource, mesg) {
     if (routes[resource]) {
-      routes[resource].write(mesg);
+      routes[resource].send(mesg);
       return true;
     } else {
       return false;

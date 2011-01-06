@@ -58,9 +58,6 @@ function $autoMessage (fn) {
       if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
       return replyMesg;
     };
-    this.sendTo = function (socket) {
-      return socket.write(this);
-    };
     if (fn) fn.apply(this, arguments);
   });
 }
