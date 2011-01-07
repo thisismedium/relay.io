@@ -5,29 +5,49 @@ var net                   = require("net");
 var http                  = require("http");
 var path                  = require("path");        
 var static                = require("node-static"); 
+var it                    = require("iterators");
+var events                = require("events");
 
 function ConnectionPool () {
   var connections = [];
+  var self = this;
   this.addConnection = function (connection) {
     connections.push(connection);
     connection.on("error", function (e) {
       console.log(e);
     });
-    function a1 () {
+    function a1 (e) {
       self.removeConnection(connection);
     }
     connection.on("close", a1);
     connection.on("error", a1);
   };
   this.removeConnection = function (con) {
-    
-    };
+    var connections = it.fold(function(a, b){ 
+      if (b == con) return a;
+      else a.append(b);
+    }, [], connections);
+    if (connections.length == 0) {
+      this.emit("empty");
+    }
+  };
+  this.getConnection = function () {
+    // just return a random connection (for now).
+    return connections[Math.floor(Math.random() * connections.length)]
+  };
 };
+ConnectionPool.prototype = events.EventEmitter.prototype;
 
 exports.app = function () {
 
-  var masterConnection = [new ApplicationSocketLink(net.createConnection(8124, "localhost")), 
-                          new ApplicationSocketLink(net.createConnection(8124, "localhost"))];
+  var pool = new ConnectionPool();
+  pool.addConnection(new ApplicationSocketLink(net.createConnection(8124, "localhost")));
+  pool.addConnection(new ApplicationSocketLink(net.createConnection(8124, "localhost")));
+
+  pool.on("empty", function () {
+    console.log(" - No connections left, I shall die");
+    process.exit();
+  })
 
   var file             = new(static.Server)(path.join(__dirname, 'client'));
   var httpServer       = http.createServer(simpleServer);
@@ -44,7 +64,7 @@ exports.app = function () {
 
   function proxy(sock) {
     console.log("GOT CONNECTION");
-    var chan = masterConnection[Math.floor(Math.random() * masterConnection.length)].newChannel();
+    var chan = pool.getConnection().newChannel();
     chan.on("end", function () {
       sock.close();
     });

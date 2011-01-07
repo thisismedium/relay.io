@@ -153,6 +153,7 @@ function ApplicationSocketLink (stream) {
             try {
               var json = JSON.parse(mesg.toString('utf8'));
             } catch (e) {
+              console.log(mesg.toString());
               self.emit("error", e);
             }
 
