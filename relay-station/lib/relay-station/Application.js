@@ -93,7 +93,7 @@ function Application (appId, keys) {
     };
 
     this.send = this.write = function write(data) {
-      return stream.send(data);
+      return stream.write(data);
     };
 
   }
