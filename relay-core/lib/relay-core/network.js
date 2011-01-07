@@ -153,6 +153,7 @@ function ApplicationSocketLink (stream) {
             try {
               var json = JSON.parse(mesg.toString('utf8'));
             } catch (e) {
+              console.log(mesg.toString());
               self.emit("error", e);
             }
 
@@ -204,9 +205,18 @@ function ApplicationSocketLink (stream) {
       delete channels[id];
   };
 
-  stream.on("close",function(){ emitOnAllChannels ("close") });
-  stream.on("end"  ,function(){ emitOnAllChannels ("end") });
-  stream.on("error",function error (e){ debug(e); debug(e.stack); emitOnAllChannels ("error",e) });
+  stream.on("close",function(){ 
+    emitOnAllChannels ("close");
+    self.emit("close");
+  });
+  stream.on("end",function(){ 
+    emitOnAllChannels ("end");
+    self.emit("end");
+  });
+  stream.on("error",function (e){ 
+    emitOnAllChannels ("error",e);
+    self.emit("error");
+  });
 
   stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });
 

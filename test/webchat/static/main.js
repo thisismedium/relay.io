@@ -1,4 +1,5 @@
-
+var RELAY_CARRIER_DOMAIN = "magic";
+var RELAY_CARRIER_PORT   = 8000;
 ////////////////////////////////////////////////////////////////////////
 
 var command_history = [];
