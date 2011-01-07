@@ -6,6 +6,23 @@ var http                  = require("http");
 var path                  = require("path");        
 var static                = require("node-static"); 
 
+function ConnectionPool () {
+  var connections = [];
+  this.addConnection = function (connection) {
+    connections.push(connection);
+    connection.on("error", function (e) {
+      console.log(e);
+    });
+    function a1 () {
+      self.removeConnection(connection);
+    }
+    connection.on("close", a1);
+    connection.on("error", a1);
+  };
+  this.removeConnection = function (con) {
+    
+    };
+};
 
 exports.app = function () {
 
@@ -22,13 +39,6 @@ exports.app = function () {
       file.serve(request, response).on("error", function(e) { console.log("ERROR::") ; console.log(e) });
     });
   }
-
-  var port = process.argv[3] ? process.argv[3] : "8000";
-  var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
-
-
-  console.log(" + Relay Carrier listening at: " + host + ":" + port);
-  httpServer.listen(port, host);
 
   // proxy websocket connection directly to our backend...
 
@@ -53,6 +63,12 @@ exports.app = function () {
 
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
+
+  var port = process.argv[3] ? process.argv[3] : "8000";
+  var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
+
+  console.log(" + Relay Carrier listening at: " + host + ":" + port);
+  httpServer.listen(port, host);
 
 }
 

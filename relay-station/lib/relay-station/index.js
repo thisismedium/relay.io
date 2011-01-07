@@ -59,7 +59,9 @@ var RelayStation = function () {
     });
   });
   
-  this.listen = server.listen;
+  this.listen = function () {
+    return server.listen.apply(server, arguments);
+  }
   
 
 };
