@@ -79,7 +79,8 @@ var relayio = {};
                "url": obj.url,
                "success": obj.success,
                "complete": obj.complete,
-               "data": obj.data
+               "data": obj.data,
+               "contentType": "text/plain"
              });
     };
   };
@@ -92,7 +93,7 @@ var relayio = {};
 
     function readLoop () {
       backend.get({ 
-        "url": "/stream/read/"+session_id, 
+        "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
         "success": function(data) {
           failures = 0;
           var parsed = data.split('\x00');
@@ -107,7 +108,7 @@ var relayio = {};
 
     function connect() {
       backend.get({
-        "url": "/stream/open",
+        "url": "http://"+hostname+":"+port+"/stream/open",
         "success": function(data) {
           session_id = data;
           readLoop();
@@ -118,7 +119,7 @@ var relayio = {};
     
     this.write = this.send = function write (data, callback) {
       backend.post({
-        "url":"/stream/write/"+session_id, 
+        "url":"http://"+hostname+":"+port+"/stream/write/"+session_id, 
         "data": data, 
         "success": callback
       });
@@ -156,8 +157,13 @@ var relayio = {};
 
   ////////////////////////////////////////////////////////////////////////
 
+  // Should determine the type of connection we can use to connect to 
+  // relay.
+
   function getConnection() {
-    return new HttpSocket("localhost", 8080, new JQueryBackend());
+    return new HttpSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
+                          RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80", 
+                          new JQueryBackend());
     //return WebSocketSocket;
   };
 
