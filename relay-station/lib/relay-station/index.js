@@ -33,7 +33,8 @@ var RelayStation = function () {
       var appId = request.getBody().getAppId();
       if (!apps[appId]) {
         // no application found, report the error
-        stream.write(new api.InvalidApplicationError());
+        console.log("Invalid Application");
+        stream.write(request.replyWith(new api.InvalidApplicationError()));
       } else {
         // application found, tell the application to assume this
         // stream (.assumeStream should take the control away from the
