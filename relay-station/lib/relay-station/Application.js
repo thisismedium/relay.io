@@ -125,31 +125,6 @@ function Application (appId, keys) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  // Application.assumeStream - give an application control over a socket
-  this.assumeStream = function assumeStream (app_stream) {
-
-    // The RelayStation has told the application to assume control of the message
-    // stream, we assume the client is brand new so we need to create a new client
-    // object to track this user under.
-
-    var client = new Client(newClientId(), app_stream, 0);
-
-    // and assume the stream...
-    app_stream.removeAllListeners("data");
-    app_stream.on("data",  api.runRPC(new ApplicationRPC(client)));
-
-    app_stream.on("close", function () {
-      app_stream.destroy();
-    });
-
-    app_stream.on("end", function () {
-      app_stream.destroy();
-    });
-
-  };
-
-  ////////////////////////////////////////////////////////////////////////
-
   function getKeyByHash (hash) {
     for (var i = 0; i < keys.length; i++) {
       if (keys[i].getHash() === hash) {
@@ -161,7 +136,20 @@ function Application (appId, keys) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  function ApplicationRPC (client) {
+  this.rpcHandler = function rpcHandler () {
+
+    var client = null;
+
+    this.initialize = function (app_stream) {
+      client = new Client(newClientId(), app_stream, 0);
+      app_stream.on("close", function () {
+        app_stream.destroy();
+      });
+      
+      app_stream.on("end", function () {
+        app_stream.destroy();
+      });
+    };
 
     // Client said "Hello", they are brand new to the world...
     this.Hello = function (request) {

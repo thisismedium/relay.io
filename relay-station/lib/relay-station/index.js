@@ -39,7 +39,7 @@ var RelayStation = function () {
         // application found, tell the application to assume this
         // stream (.assumeStream should take the control away from the
         // RelayStation so all messages are passed directly to the application)
-        apps[appId].assumeStream(stream);
+        api.bindStreamToRpc(stream, new apps[appId].rpcHandler());
         stream.emit("data", request);
       }
     };
@@ -76,6 +76,7 @@ exports.app = function () {
 
 
 process.on('uncaughtException', function (err) {
+  console.log(err.stack);
   console.log('Caught exception: ' + err);
 });
 
