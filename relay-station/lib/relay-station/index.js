@@ -74,8 +74,8 @@ exports.app = function () {
   (new RelayStation()).listen(port, host);
 }
 
-/*
+
 process.on('uncaughtException', function (err) {
   console.log('Caught exception: ' + err);
 });
-*/
+

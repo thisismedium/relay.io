@@ -4,9 +4,21 @@ var ADB = require("./ApplicationDatabase");
 var net = require("net");
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 
-function RelayHubRPC (db, stream) {
+function Hub () {
+  
+  this.RpcHandler = function () {
+    this.stream = null;
+    this.initialize = function (stream) {
+      this.stream = stream;
+    }
+  }
 
-  this.hub = new Hub(db);
+};
+
+
+function RelayStationRegisterRPC (db, stream) {
+
+  hub = new Hub(db);
 
   this.log = function (data) {
     console.log(data);
@@ -14,7 +26,7 @@ function RelayHubRPC (db, stream) {
 
   this.RegisterStation = function (mesg) {
     if (mesg.getKey() == settings.station_key) {
-      this.hub.assumeStream(stream);
+      api.bindStreamToRpc(stream, new hub.RpcHandler());
     } else {
       stream.send(mesg.replyWith(api.PermissionDeniedError()));
     }
@@ -31,6 +43,6 @@ var server = net.createServer(function (raw_stream) {
   var appDB = new ADB.ApplicationDatabase(settings.application_database_path)
   var appStream = new ApplicationSocketLink(raw_stream);
   appStream.on("channel", function (stream) {
-    stream.on("data", api.runRPC(new RelayHubRPC(appDB, stream)));
+    api.bindStreamToRpc(stream, new RelayStationRPC(appDB, stream));
   });
 });

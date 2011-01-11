@@ -302,4 +302,12 @@ function $autoMessage (fn) {
     };
   };
 
+  exports.bindStreamToRpc = function (stream, env) {
+    stream.removeAllListeners("data");
+    if (envObj.initialize) { 
+      envObj.initialize(stream);
+    }
+    stream.on("data", exports.runRPC(env));
+  };
+
 })(exports)

@@ -3,7 +3,7 @@
   "description": "",
   "version": "0.0.1",
   "author": "James Sanders",
-  "directories": { "lib": "lib/relay-station" },
-  "bin": {"relay-station": "bin/relay-station"},
+  "directories": { "lib": "./lib/relay-station" },
+  "bin": {"relay-station": "./bin/relay-station"},
   "engines": { "node": ">= 0.2.4" }
 }
