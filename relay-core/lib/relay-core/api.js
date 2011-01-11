@@ -231,11 +231,25 @@ function $autoMessage (fn) {
 
   // InvalidMessage
 
-  exports.InvalidMessage = $autoMessage(function(mesg) {
+  exports.InvalidMessage = $autoMessage(function (mesg) {
     this.load({"type": "InvalidMessage", "message": mesg });
     this.getMesgId = function () {
       return mesg.mesgId;
     }
+  });
+
+
+  // ApplicationData
+  exports.ApplicationData = $autoMessage(function (keys) {
+    this.load({"type": "ApplicationData", 
+               "body": {
+                 "keys": keys
+               }
+              });
+  });
+
+  exports.Key = $autoMessage(function (key, modes) {
+    this.load({"type": "Key", "key": key, "mode": modes});
   });
 
   // convert raw json data into a fancier Javascript function with accessor
