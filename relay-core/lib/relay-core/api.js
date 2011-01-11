@@ -252,6 +252,11 @@ function $autoMessage (fn) {
     this.load({"type": "Key", "key": key, "mode": modes});
   });
 
+  exports.RegisterStation = $autoMessage(function (key) {
+    this.load({"type": "RegisterStation", "body": { "key": key }});
+    this.getKey = function () { return this.getBody().getKey() }
+  });
+
   // convert raw json data into a fancier Javascript function with accessor
   // methods and what not.
 
