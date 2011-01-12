@@ -1,13 +1,10 @@
 {
   "name": "relay-core",
-  "description": "",
+  "description": "Relay API and shared logic.",
   "version": "0.0.1",
-  "author": "",
-  "contributors": [],
   "dependencies": {},
-  "keywords": [],
   "directories": { "lib": "./lib/relay-core" },
-  "scripts": {},
-  "bin": {},
-  "engines": { "node": ">= 0.2.4" }
+  "mappings": {
+    "iteratee": "file:../deps/iteratee.js"
+  }
 }

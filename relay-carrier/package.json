@@ -3,8 +3,14 @@
   "description": "",
   "version": "0.0.1",
   "author": "James Sanders",
+  "main": "./server.js",
   "dependencies": {},
   "directories": { "lib": "lib/relay-carrier" },
   "bin": {"relay-carrier": "bin/relay-carrier"},
-  "engines": { "node": ">= 0.2.4" }
+  "mappings": {
+    "relay-core": "file:../relay-core",
+    "http-stream": "file:../deps/http-stream",
+    "iterators": "file:../deps/iterator.js",
+    "node-static": "file:../deps/node-static"
+  }
 }

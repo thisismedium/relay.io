@@ -1,4 +1,4 @@
-var http   = require("http");   
+var http   = require("http");
 var static = require("node-static");
 function simpleServer (request, response) {
     request.addListener('end', function () {
