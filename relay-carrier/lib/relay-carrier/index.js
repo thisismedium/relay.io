@@ -19,6 +19,7 @@ function ConnectionPool () {
     function a1 (e) {
       self.removeConnection(connection);
     }
+    connection.on("end", a1);
     connection.on("close", a1);
     connection.on("error", a1);
   };
