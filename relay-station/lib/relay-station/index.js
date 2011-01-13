@@ -19,7 +19,10 @@ var apps = {
 var RelayStation = function () {
   
   var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
-  hubConnection.write(new api.RegisterStation("test"))
+  hubConnection.write(new api.RegisterStation("test"), function(data) {
+        console.log("HELLLLOOOO WORLDDDDDDD");
+        console.log(data);
+  });
 
   // This is the object that all of the request are initially 
   // dispatached to (using the api.runRPC controller). 

@@ -171,9 +171,10 @@ function MultiplexedSocket (stream) {
   modeReader();
 
   function emitOnAllChannels (signal) {
+    console.log(arguments);
     for (channel in channels) {
       if (channels.hasOwnProperty(channel)) {
-        channels[channel].emit(signal,arguments);
+        channels[channel].emit(signal, arguments);
       }
     }
   };
