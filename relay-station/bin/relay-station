@@ -1,2 +1,4 @@
-#!/usr/bin/env node
-require("relay-station").app();
+#!/bin/sh
+
+exec defjs `dirname $0`/..
+

@@ -1,0 +1,9 @@
+{
+  "name": "tests",
+  "mappings": {
+    "relay-core": "file:../relay-core",
+    "http-stream": "file:../deps/http-stream",
+    "iterators": "file:../deps/iterator.js",
+    "node-static": "file:../deps/node-static"
+  }
+}

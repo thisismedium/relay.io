@@ -10,3 +10,6 @@
 [submodule "deps/node-static"]
 	path = deps/node-static
 	url = git://github.com/jamessanders/node-static.git
+[submodule "deps/servermedium.js"]
+	path = deps/servermedium.js
+	url = git@github.com:thisismedium/servermedium.js.git
