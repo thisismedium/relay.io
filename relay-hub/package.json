@@ -1,13 +1,9 @@
 {
-  "name": "relay-dispatch",
+  "name": "relay-hub",
   "description": "",
   "version": "0.0.1",
-  "author": "",
-  "contributors": [],
-  "dependencies": {},
-  "keywords": [],
-  "directories": { "lib": "lib/relay-dispatch" },
-  "scripts": {},
-  "bin": {},
-  "engines": { "node": ">= 0.2.4" }
+  "author": "James Sanders",
+  "directories": { "lib": "./lib/relay-hub" },
+  "bin": {"relay-hub": "./bin/relay-hub"},
+  "engines": { "node": ">= 0.2.6" }
 }

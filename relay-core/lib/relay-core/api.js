@@ -240,21 +240,27 @@ function $autoMessage (fn) {
 
 
   // ApplicationData
-  exports.ApplicationData = $autoMessage(function (keys) {
+  exports.ApplicationData = $autoMessage(function (appId, keys) {
     this.load({"type": "ApplicationData", 
                "body": {
+                 "appId": appId,
                  "keys": keys
                }
               });
   });
 
-  exports.Key = $autoMessage(function (key, modes) {
-    this.load({"type": "Key", "key": key, "mode": modes});
+  exports.Key = $autoMessage(function (name, value, perms) {
+    this.load({"name": name, "value": value, "perms": perms});
   });
 
   exports.RegisterStation = $autoMessage(function (key) {
     this.load({"type": "RegisterStation", "body": { "key": key }});
     this.getKey = function () { return this.getBody().getKey() }
+  });
+
+  exports.GetApplicationData = $autoMessage(function (appId) {
+    this.load({"type": "GetApplicationData", "body": { "appId": appId }});
+    this.getAppId = function () { return this.getBody().getAppId() };
   });
 
   // convert raw json data into a fancier Javascript function with accessor
@@ -280,6 +286,10 @@ function $autoMessage (fn) {
 
     "Message": exports.Message, // -> Success | Error
 
+    "RegisterStation": exports.RegisterStation,
+    "GetApplicationData": exports.GetApplicationData,
+    "ApplicationData": exports.ApplicationData,
+
     "Error"  : exports.Error
 
   }
@@ -298,7 +308,7 @@ function $autoMessage (fn) {
       if (envObj[data.getType()])
         envObj[data.getType()](data);
       else
-        envObj["InvalidRequest"](request);
+        envObj["InvalidRequest"](data);
     };
   };
 

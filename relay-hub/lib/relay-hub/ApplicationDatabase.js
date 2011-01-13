@@ -1,44 +1,47 @@
-var tc = require("node-tokyocabinet");
+var tc = require("node-tokyocabinet/tcasync");
 var api = require("relay-core/api");
 
 var ApplicationDatabase = function ApplicationDatabase (path) {
   
-  var read   = 'r+';
-  var write  = 'w+';
-  var append = 'a+';
-  
-  function getDB (mode, callback) {
-    var db = new tc.HashDB();
-    db.open(path, mode, function(err) {
-      if (err) throw err;
-      callback(err, db);
-    });
+  if (!path) throw "ApplicationDatabase: Path not provided!"
+
+  var self = this;
+
+  this.db = null;
+
+  function withDB (callback) {
+    if (!self.db) {
+      self.db = new tc.HashDB();
+      self.db.open(path, "a+", function(err) {
+        if (err) throw (err);
+        callback(err, self.db);
+      });
+    } else {
+      callback(null, self.db);
+    }
   };
   
   this.getApplicationData = function getApplicationData (appId, callback) {
-    getDB(read, function (err, db) {
+    withDB(function (err, db) {
       if (err) throw err;
       db.get(appId, function(err, data) {
         if (err) {
-          callback(null);
+          callback(err, null);
         } else {
-          callback(JSON.parse(data));
+          callback(err, JSON.parse(data));
         }
+        db.close(function(){})
       });
     });
   };
 
   this.putApplicationData = function putApplicationData (appId, data, callback) {
-    getDB(write, function (err, db) {
+    withDB(function (err, db) {
       if (err) throw err;
       db.put(appId, JSON.stringify(data.dump()), callback);
     });
   };
 
 };
-
-keys = [new Key("test", "write, read")]
-app  = new api.ApplicationData (keys);
-console.log(JSON.stringify(app.dump()))
 
 exports.ApplicationDatabase = ApplicationDatabase;

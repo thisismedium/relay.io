@@ -1,3 +1,4 @@
+var map = require("iterators").map;
 function autoMakeRecords (data) {
   if (data instanceof Object) {
     if (data instanceof Array) {
@@ -10,6 +11,15 @@ function autoMakeRecords (data) {
   }
 }
 
+function autoDumpRecords (data) {
+  for (k in data) {
+    if ((data[k] instanceof Object) && data[k]._data_) {
+      data[k] = data[k]._data_;
+    } 
+  }
+  return data;
+}
+
 function autoRecord (init) {
   if (init){
     var obj = init;
@@ -17,7 +27,7 @@ function autoRecord (init) {
     var obj = function(){};
   }
   obj._data_ = {};
-  obj.prototype.dump = function () { return this._data_ };
+  obj.prototype.dump = function () { return autoDumpRecords(this._data_) };
   obj.prototype.load = function (data) {
     if (typeof(this._data_) == "undefined") {
       this._data_ = data;

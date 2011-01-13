@@ -18,6 +18,9 @@ var apps = {
 
 var RelayStation = function () {
   
+  var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
+  hubConnection.write(new api.RegisterStation("test"))
+
   // This is the object that all of the request are initially 
   // dispatached to (using the api.runRPC controller). 
   function RelayStationRPC (stream) {
@@ -30,6 +33,7 @@ var RelayStation = function () {
     this.Hello = function (request) {
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
+      hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()));
       var appId = request.getBody().getAppId();
       if (!apps[appId]) {
         // no application found, report the error
