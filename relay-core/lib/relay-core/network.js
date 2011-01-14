@@ -33,6 +33,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   var self = this;
   var currentMid = 0;
   var callbacks = {};
+  var rpcHandler = null;
 
   function getNextMessageId () {
     currentMid += 1;
@@ -43,23 +44,50 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   socketChan.on("error", function (e) { self.emit("error",e)});
   socketChan.on("close", function () { self.emit("close")});
     
-  socketChan.on("data", function (data) {
-    try {
-      var json = JSON.parse(data);
-    } catch (e) {
-      console.log(e);
-      self.emit("error", e);
+  self.getSocket = function () { return socketChan };
+
+  this.dispatch = function (mesg) {
+    if (mesg.getMesgId && callbacks[mesg.getMesgId()]) {
+      callbacks[mesg.getMesgId()](mesg);
+    } else if (rpcHandler) {
+      if (rpcHandler.log) {
+        rpcHandler.log(mesg);
+      }
+      if (mesg.getType && rpcHandler[mesg.getType()]) {
+        rpcHandler[mesg.getType()](mesg, {
+          "reply": function (replyMessage, callback) {
+            if (mesg.getMesgId) {
+              replyMessage._data_.mesgId = mesg.getMesgId();
+            } 
+            self.write(replyMessage, callback);
+          }
+        });
+      }
+    } else {
+      self.emit("data", mesg);
     }
-    if (json) {
-      console.log("Parsed some JSON");
-      var mesg = api.constructMessage(json);
-      if (mesg.getMesgId && callbacks[mesg.getMesgId()]) {
-        callbacks[mesg.getMesgId()](mesg);
-      } else {
-        self.emit("data", mesg);
+  }
+
+  socketChan.on("data", function (data) {
+    if (typeof(data) == "string") {
+      try {
+        var json = JSON.parse(data);
+      } catch (e) {
+        console.log(e);
+        self.emit("error", e);
       }
     }
+    if (json) {
+      var mesg = api.constructMessage(json);
+      self.dispatch(mesg);
+    }
   });
+
+  this.bindRpcHandler = function (handler) {
+    console.log("Switching RPC handler");
+    if (handler.initialize) handler.initialize(this);
+    rpcHandler = handler;
+  }
 
   this.getId     = function () { return socketChan.getId() };
   this.getSocket = function () { return socketChan.getSocket() };

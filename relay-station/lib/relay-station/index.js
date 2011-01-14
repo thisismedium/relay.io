@@ -33,7 +33,8 @@ var RelayStation = function () {
       console.log(data.getType());
     };
 
-    this.Hello = function (request) {
+    this.Hello = function (request, resp) {
+      console.log("Got Hello!");
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
       hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()));
@@ -41,13 +42,13 @@ var RelayStation = function () {
       if (!apps[appId]) {
         // no application found, report the error
         console.log("Invalid Application");
-        stream.write(request.replyWith(new api.InvalidApplicationError()));
+        resp.reply(new api.InvalidApplicationError());
       } else {
         // application found, tell the application to assume this
         // stream (.assumeStream should take the control away from the
         // RelayStation so all messages are passed directly to the application)
-        api.bindStreamToRpc(stream, new apps[appId].rpcHandler());
-        stream.emit("data", request);
+        stream.bindRpcHandler(new apps[appId].rpcHandler());
+        stream.dispatch(request);
       }
     };
 
@@ -63,7 +64,7 @@ var RelayStation = function () {
   var server = net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
-      stream.on("data", api.runRPC(new RelayStationRPC(stream)));
+      stream.bindRpcHandler(new RelayStationRPC(stream));
     });
   });
   

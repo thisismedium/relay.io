@@ -18,7 +18,6 @@ function ConnectionPool () {
       console.log(e);
     });
     function a1 (e) {
-      console.log("Got end!!!!!!!!!!!!!!!!!!!!!!");
       self.removeConnection(connection);
     }
     connection.on("end", a1);
@@ -66,17 +65,16 @@ exports.app = function () {
   // proxy websocket connection directly to our backend...
 
   function proxy(sock) {
-    console.log("GOT CONNECTION");
     var chan = pool.getConnection().newChannel();
     chan.on("end", function () {
       sock.close();
     });
     chan.on("data", function (data) {
-      console.log(" < DATA FROM SERVER: " + data);
+      //console.log(" < DATA FROM SERVER: " + data);
       sock.send(data);
     });
     sock.on("message", function (data) {
-      console.log(" > DATA FROM BROWSER: " + data);
+      //console.log(" > DATA FROM BROWSER: " + data);
       chan.writeRaw(data);
     });
     sock.on("close", function () {
