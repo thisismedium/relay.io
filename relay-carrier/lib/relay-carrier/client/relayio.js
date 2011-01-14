@@ -71,6 +71,7 @@ var relayio = {};
     this.get = function get(obj) {
       $.ajax({ "url": obj.url,
                "success": obj.success,
+               "error"  : obj.error,
                "complete": obj.complete
              });
     };
@@ -78,6 +79,7 @@ var relayio = {};
       $.ajax({ "type": 'POST',
                "url": obj.url,
                "success": obj.success,
+               "error"  : obj.error,
                "complete": obj.complete,
                "data": obj.data,
                "contentType": "text/plain"
@@ -102,7 +104,8 @@ var relayio = {};
             if (parsed[i]) self.emit("data", parsed[i]);
           }
         },
-        "complete": function(){if(failures < 5) setTimeout(readLoop,1)}
+        "error": function () { failures += 1 },
+        "complete": function(){if(failures < 10) setTimeout(readLoop,1)}
       });
     };
 
@@ -118,11 +121,14 @@ var relayio = {};
     };
     
     this.write = this.send = function write (data, callback) {
-      backend.post({
-        "url":"http://"+hostname+":"+port+"/stream/write/"+session_id, 
-        "data": data, 
-        "success": callback
-      });
+      if (failures < 10) {
+        backend.post({
+          "url":"http://"+hostname+":"+port+"/stream/write/"+session_id, 
+          "data": data, 
+          "error": function () { failures += 1 },
+          "success": callback
+        });
+      }
     };
 
     connect();
@@ -164,7 +170,10 @@ var relayio = {};
     return new HttpSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
                           RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80", 
                           new JQueryBackend());
-    //return WebSocketSocket;
+    /*
+    return new WebSocketSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
+                              RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80");
+    */     
   };
 
   ////////////////////////////////////////////////////////////////////////
@@ -318,7 +327,7 @@ var relayio = {};
     };
 
     this.send = function send (mesg, callback) {
-      console.log(mesg);
+      //console.log(mesg);
       var mesg = mesg.dump();
       if (callback) {
         var id = getNextMessageId();
