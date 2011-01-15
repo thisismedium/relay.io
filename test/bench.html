@@ -13,8 +13,8 @@ function log (t) {
   $(".messages").text(t);
 }
 
-var RELAY_CARRIER_DOMAIN = "localhost";
-var RELAY_CARRIER_PORT   = 8000;
+var RELAY_CARRIER_HOST = [["localhost", 8000], ["localhost", 8001], ["localhost", 8002]]
+
 var relay = new relayio.RelayClient("test",["write_key", "read_key"]);
 var start_time = null;
 relay.connect(function () {

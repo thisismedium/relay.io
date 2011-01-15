@@ -85,6 +85,7 @@ exports.app = function () {
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
 
+  console.log(process.argv)
   var port = process.argv[3] ? process.argv[3] : "8000";
   var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
 

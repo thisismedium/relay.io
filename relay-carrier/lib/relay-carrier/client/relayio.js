@@ -87,26 +87,66 @@ var relayio = {};
     };
   };
 
+  function PlainBackend () {
+    var self = this;
+    this.POST = "POST";
+    this.GET  = "GET";
+    this.ajax = function (method, obj) {
+      var req = new XMLHttpRequest();
+      req.multipart = false;
+      req.open(method, obj.url);
+      req.onreadystatechange = function (event) {
+        if (req.readyState == 4) {
+          if (req.status == 200) {
+            if (obj.success) obj.success(req.responseText);
+          } else {
+            if (obj.error) obj.error(req.status, req.responseText);
+          }
+          if(obj.complete) obj.complete(req.status, req.responseText);
+        }
+      };
+      if (method == self.POST) req.send(obj.data);  
+      else req.send();
+    };
+
+    this.get = function(obj) {
+      this.ajax(this.GET, obj);
+    };
+
+    this.post = function(obj) {
+      this.ajax(this.POST, obj);
+    };
+
+  };
+
+
   function HttpSocket (hostname, port, backend) {
 
     var self = this;
     var session_id;
     var failures = 0;
+    var readers = 0;
 
     function readLoop () {
-      backend.get({ 
-        "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
-        "success": function(data) {
-          failures = 0;
-          var parsed = data.split('\x00');
-          parsed.reverse();
-          for (var i = 0; i < parsed.length; i++) {
-            if (parsed[i]) self.emit("data", parsed[i]);
-          }
-        },
-        "error": function () { failures += 1 },
-        "complete": function(){if(failures < 10) setTimeout(readLoop,1)}
-      });
+      function aux() {
+        readers += 1;
+        backend.get({ 
+          "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
+          "success": function(data) {
+            failures = 0;
+            var parsed = data.split('\x00');
+            parsed.reverse();
+            for (var i = 0; i < parsed.length; i++) {
+              if (parsed[i]) self.emit("data", parsed[i]);
+            }
+          },
+          "error": function () { failures += 1 },
+          "complete": function(){readers -= 1; if(failures < 10) setTimeout(readLoop,1)}
+        });
+      }
+      while (readers < 2) {
+        aux();
+      }
     };
 
     function connect() {
@@ -167,13 +207,16 @@ var relayio = {};
   // relay.
 
   function getConnection() {
-    return new HttpSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
-                          RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80", 
-                          new JQueryBackend());
-    /*
-    return new WebSocketSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
-                              RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80");
-    */     
+    if (RELAY_CARRIER_HOST) {
+      var carrier = RELAY_CARRIER_HOST[Math.floor(Math.random()*RELAY_CARRIER_HOST.length)];
+    } else {
+      var carrier = ["api.relay.io","80"];
+    }
+    if (!window.WebSocket) {
+      return new HttpSocket(carrier[0], carrier[1], new PlainBackend());
+    } else {
+      return new WebSocketSocket(carrier[0], carrier[1]);
+    } 
   };
 
   ////////////////////////////////////////////////////////////////////////
