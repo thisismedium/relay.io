@@ -98,12 +98,11 @@ var relayio = {};
     this.ajax = function (method, obj) {
 
       var req = new XMLHttpRequest();
-      req.open(method, obj.url);  
 
-      if (obj.multipart === true) {
-        req.multipart = obj.multipart;
-        req.setRequestHeader("Accept","multipart/x-mixed-replace");
-      }
+      if (obj.multipart) req.multipart = obj.multipart;
+      req.open(method, obj.url);  
+      if (obj.multipart) req.setRequestHeader("Accept","multipart/x-mixed-replace");
+      
 
       if (req.multipart === true) {
         var abort = function(){ req.abort() };
@@ -161,7 +160,7 @@ var relayio = {};
       function aux() {
         readers += 1;
         backend.get({ 
-          "multipart": false,
+          "multipart": true,
           "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
           "success": function(data) {
             failures = 0;
@@ -186,6 +185,9 @@ var relayio = {};
         "success": function(data) {
           session_id = data;
           self.emit("connect");
+          readLoop();
+        },
+        "complete": function () {
           readLoop();
         }
       });
