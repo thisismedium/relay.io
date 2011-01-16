@@ -13,12 +13,11 @@ function log (t) {
   $(".messages").text(t);
 }
 
-var RELAY_CARRIER_HOST = [["localhost", 8000], ["localhost", 8001], ["localhost", 8002]]
+var RELAY_CARRIER_HOST = [["localhost", 8000]]
 
 var relay = new relayio.RelayClient("test",["write_key", "read_key"]);
 var start_time = null;
-relay.connect(function () {
-  relay.join("#test", function(err, global_chan) {
+relay.connect(function (global_chan) {
     var total = 0;
     global_chan.on("message", function (mesg) {
       log(mesg);
@@ -57,7 +56,7 @@ relay.connect(function () {
       }
       setTimeout(aux, 1); 
     });
-  });
+
 });
 </script>
 
