@@ -89,24 +89,54 @@ var relayio = {};
 
   function PlainBackend () {
     var self = this;
+
     this.POST = "POST";
     this.GET  = "GET";
+
+    var timeout = 30000;
+
     this.ajax = function (method, obj) {
+
       var req = new XMLHttpRequest();
-      req.multipart = false;
-      req.open(method, obj.url);
-      req.onreadystatechange = function (event) {
-        if (req.readyState == 4) {
+      req.open(method, obj.url);  
+
+      if (obj.multipart === true) {
+        req.multipart = obj.multipart;
+        req.setRequestHeader("Accept","multipart/x-mixed-replace");
+      }
+
+      if (req.multipart === true) {
+        var abort = function(){ req.abort() };
+        var to = setTimeout(abort, timeout);
+        req.onload = function() {
           if (req.status == 200) {
+            clearTimeout(to);
+            to = setTimeout(abort, timeout);
             if (obj.success) obj.success(req.responseText);
           } else {
             if (obj.error) obj.error(req.status, req.responseText);
+            if (obj.complete) obj.complete();
           }
-          if(obj.complete) obj.complete(req.status, req.responseText);
         }
-      };
+        req.onabort = function () { 
+          if (obj.complete) obj.complete(); 
+        }
+      } else {
+        req.onreadystatechange = function (event) {
+          if (req.readyState == 4) {
+            if (req.status == '200') {
+              if (obj.success) obj.success(req.responseText);
+            } else {
+              if (obj.error) obj.error();
+            }
+            if(obj.complete) obj.complete(req.status, req.responseText);
+          }
+        };
+      }
+      
       if (method == self.POST) req.send(obj.data);  
       else req.send();
+      
     };
 
     this.get = function(obj) {
@@ -131,6 +161,7 @@ var relayio = {};
       function aux() {
         readers += 1;
         backend.get({ 
+          "multipart": false,
           "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
           "success": function(data) {
             failures = 0;
@@ -144,7 +175,7 @@ var relayio = {};
           "complete": function(){readers -= 1; if(failures < 10) setTimeout(readLoop,1)}
         });
       }
-      while (readers < 2) {
+      while (readers < 1) {
         aux();
       }
     };
@@ -154,8 +185,8 @@ var relayio = {};
         "url": "http://"+hostname+":"+port+"/stream/open",
         "success": function(data) {
           session_id = data;
-          readLoop();
           self.emit("connect");
+          readLoop();
         }
       });
     };
