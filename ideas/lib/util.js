@@ -1,3 +1,7 @@
+// # util.js #
+//
+// Helpful methods that implement boring parts of Relay.
+//
 define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
   exports.proxyEvents = proxyEvents;

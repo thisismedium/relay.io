@@ -1,13 +1,20 @@
+// # stream.js #
+//
+// A wrapper around the built-in `net` module that assumes stream
+// traffic will be JSON objects.
+
 define(['exports', 'net', './util'], function(exports, Net, U) {
+
+  exports.createServer = createServer;
+  exports.Server = Server;
+  exports.createConnection = createConnection;
+  exports.Stream = Stream;
 
   
   // ## JSON Stream Server ##
 
   // A JSON server wraps connected streams as a JSON stream. It
   // otherwise behaves like a net.Server.
-
-  exports.createServer = createServer;
-  exports.Server = Server;
 
   function createServer(listener) {
     return new Server(listener);
@@ -43,10 +50,10 @@ define(['exports', 'net', './util'], function(exports, Net, U) {
   // ## JSON Stream ##
 
   // A JSON stream parses and stringifies data passing through a
-  // net.Stream. That is, `write()` accepts objects and 'data' emits
+  // net.Stream. That is, `write()` accepts objects and `data` emits
   // objects.
   //
-  // The 'data' event is extended to emit objects instead of a buffer
+  // The `data` event is extended to emit objects instead of a buffer
   // or string. The second argument emitted from the `data` event is
   // the length of the serialized object in bytes.
   //
@@ -65,9 +72,6 @@ define(['exports', 'net', './util'], function(exports, Net, U) {
   //     });
   //
   // Otherwise, this behaves like a net.Stream.
-
-  exports.createConnection = createConnection;
-  exports.Stream = Stream;
 
   function createConnection(port, host) {
     return new Stream(Net.createConnection(port, host));
