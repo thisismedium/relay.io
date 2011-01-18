@@ -1,5 +1,4 @@
-define(['exports', 'net', './util'],
-function(exports, Net, U) {
+define(['exports', 'net', './util'], function(exports, Net, U) {
 
   
   // ## JSON Stream Server ##
@@ -44,8 +43,28 @@ function(exports, Net, U) {
   // ## JSON Stream ##
 
   // A JSON stream parses and stringifies data passing through a
-  // net.Stream. That is, .write() accepts objects and 'data' emits
-  // objects. It otherwise behaves like a net.Stream.
+  // net.Stream. That is, `write()` accepts objects and 'data' emits
+  // objects.
+  //
+  // The 'data' event is extended to emit objects instead of a buffer
+  // or string. The second argument emitted from the `data` event is
+  // the length of the serialized object in bytes.
+  //
+  // Likewise, a new `write` event is emitted on each write. The first
+  // argument is the object written and the second argument is the
+  // length of the serialized object in bytes.
+  //
+  // For example:
+  //
+  //   createConnection(...)
+  //     .on('data', function(obj, len) {
+  //       console.log('recv %d bytes: %j', len, obj);
+  //     })
+  //     .on('write', function(obj, len) {
+  //       console.log('sent %d bytes: %j', len, obj);
+  //     });
+  //
+  // Otherwise, this behaves like a net.Stream.
 
   exports.createConnection = createConnection;
   exports.Stream = Stream;
@@ -88,7 +107,9 @@ function(exports, Net, U) {
       return this;
     }
 
-    this.emit('data', obj);
+    // The `+1` accounts for the terminal character stripped by
+    // `U.readlines()`.
+    this.emit('data', obj, Buffer.byteLength(data) + 1);
     return this;
   };
 
@@ -96,13 +117,14 @@ function(exports, Net, U) {
     var err, data;
 
     try {
-      data = JSON.stringify(obj);
+      data = JSON.stringify(obj) + '\n';
     } catch (err) {
       this.emit('error', err);
       return true;
     }
 
-    return this.stream.write(data + '\n');
+    this.emit('write', obj, Buffer.byteLength(data));
+    return this.stream.write(data);
   };
 
   Stream.prototype.end = function(obj) {

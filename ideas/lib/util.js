@@ -4,6 +4,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.readlines = readlines;
   exports.inherits = Sys.inherits;
   exports.EventEmitter = Events.EventEmitter;
+  exports.extend = extend;
 
   
   // ## Helpers ##
@@ -64,6 +65,22 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     for (var i = 0, l = seq.length; i < l; i++)
       result[i] = seq[i];
     return result;
+  }
+
+  
+  // ## Objects ##
+
+  function extend(target) {
+    var key, obj;
+
+    for (var i = 1, l = arguments.length; i < l; i++) {
+      if ((obj = arguments[i])) {
+        for (key in obj)
+          target[key] = obj[key];
+      }
+    }
+
+    return target;
   }
 
 });
