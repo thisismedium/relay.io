@@ -342,11 +342,39 @@ define(['exports', './util'], function(exports, U) {
     seed.started = this.queue[0].started;
     seed.stopped = this.queue[size - 1].stopped;
 
-    this.queue.forEach(function(stats) {
+    this.each(function(stats) {
       seed.update(stats);
     });
 
     return seed;
+  };
+
+  Average.prototype.each = function(fn) {
+    this.queue.forEach(fn);
+    return this;
+  };
+
+  Average.prototype.avgRate = function() {
+    var total = this.queue.length,
+        stats,
+        delta = 0,
+        rateIn = 0,
+        rateOut = 0;
+
+    this.each(function(stats) {
+      delta = stats.delta();
+      rateIn += stats.bytesIn / delta;
+      rateOut += stats.bytesOut / delta;
+    });
+
+    console.log('avgRate', rateIn, rateOut, total);
+
+    return {
+      total: total,
+      bytes: Math.round((rateIn + rateOut) / total, 2),
+      bytesIn: Math.round(rateIn / total, 2),
+      bytesOut: Math.round(rateOut / total, 2)
+    };
   };
 
 });

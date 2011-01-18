@@ -64,7 +64,8 @@ define(['relay/log', 'relay/util'], function(Log, U) {
 
   process.on('SIGINT', function() {
     var stats = top.average[300].stats(),
-        avg = stats.average();
+        avg = stats.average(),
+        rate = top.average[300].avgRate();
 
     console.log('\n## 5 Minute Breakdown ##\n');
 
@@ -88,9 +89,11 @@ define(['relay/log', 'relay/util'], function(Log, U) {
     });
 
     console.log('');
-    console.log('total i/o:  %d/%d', stats.bytesIn, stats.bytesOut);
-    console.log('avg i/o:    %d/%d', avg.bytesIn, avg.bytesOut);
-    console.log('interval:   %d seconds', avg.delta);
+    console.log('total i/o:    %d/%d', stats.bytesIn, stats.bytesOut);
+    console.log('avg i/o:      %d/%d', avg.bytesIn, avg.bytesOut);
+    console.log('avg rate i/o: %d/%d', rate.bytesIn, rate.bytesOut);
+    console.log('avg load:     %d', rate.bytes);
+    console.log('interval:     %d seconds', avg.delta);
     console.log('');
 
     process.exit(0);
