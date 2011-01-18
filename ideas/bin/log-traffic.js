@@ -24,9 +24,9 @@ define(['relay/log', 'relay/util'], function(Log, U) {
         .add(stream)
         .heartbeat(1000),
 
-      // Summarize the log. When called this way, only the most
-      // recent stats and a total of stats will be kept.
-      top = new Log.Top(log);
+      // Summarize the log. When called this way, the most recent
+      // stats, a 5 minute average, and a total of stats will be kept.
+      top = new Log.Top(log, [300]);
 
   // Show updated stats each time the Top instance updates
   // itself. This is driven by the log's heartbeat.
@@ -60,6 +60,40 @@ define(['relay/log', 'relay/util'], function(Log, U) {
 
     if (name)
       stream.emit(name, { from: probe[1], to: probe[2] }, parseInt(probe[3]));
+  });
+
+  process.on('SIGINT', function() {
+    var stats = top.average[300].stats(),
+        avg = stats.average();
+
+    console.log('\n## 5 Minute Breakdown ##\n');
+
+    var tally = [];
+    for (var key in stats._in['from']) {
+      tally.push({
+        key: key,
+        bytesIn: stats._in['from'][key] + stats._in['to'][key],
+        bytesOut: stats._out['from'][key] + stats._out['to'][key]
+      });
+    }
+
+    tally.sort(function(a, b) {
+      var ta = a.bytesIn + a.bytesOut,
+          tb = a.bytesOut + b.bytesOut;
+      return (ta < tb) ? -1 : (ta == tb) ? 0 : 1;
+    });
+
+    tally.forEach(function(entry) {
+      console.log('%s i/o: %d/%d', entry.key, entry.bytesIn, entry.bytesOut);
+    });
+
+    console.log('');
+    console.log('total i/o:  %d/%d', stats.bytesIn, stats.bytesOut);
+    console.log('avg i/o:    %d/%d', avg.bytesIn, avg.bytesOut);
+    console.log('interval:   %d seconds', avg.delta);
+    console.log('');
+
+    process.exit(0);
   });
 
 });

@@ -288,7 +288,7 @@ define(['exports', './util'], function(exports, U) {
     this.last = this.makeStats();
 
     for (var secs in this.average)
-      this.average[secs] = new Average(secs);
+      this.average[secs] = new Average(this, secs);
 
     return this;
   };
@@ -313,7 +313,8 @@ define(['exports', './util'], function(exports, U) {
   // interval. This can be used to calculate useful statistics over
   // the interval later.
 
-  function Average(secs) {
+  function Average(top, secs) {
+    this.top = top;
     this.time = secs * 1000;
     this.queue = [];
   }
@@ -332,7 +333,7 @@ define(['exports', './util'], function(exports, U) {
   };
 
   Average.prototype.stats = function() {
-    var seed = this.makeStats().stop(),
+    var seed = this.top.makeStats().stop(),
         size = this.queue.length;
 
     if (size == 0)
@@ -342,7 +343,7 @@ define(['exports', './util'], function(exports, U) {
     seed.stopped = this.queue[size - 1].stopped;
 
     this.queue.forEach(function(stats) {
-      sum.update(stats);
+      seed.update(stats);
     });
 
     return seed;
