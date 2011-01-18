@@ -1,6 +1,6 @@
 // # log.js #
 //
-// Collect statistics from JSON streams. Each stream must these
+// Collect statistics from JSON streams. Each stream must emit these
 // events:
 //
 //   .on('data', function(obj, nbytes))
