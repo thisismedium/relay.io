@@ -16,7 +16,7 @@
 // A Top (e.g. unix `top` command) can collect statistics emitted from
 // a Log and aggregate them. It's a bit like a reduce.
 //
-// For example;
+// For example:
 //
 //     var log = new Log(['from', 'to']),
 //         top = new Top(log).heartbeat(1000);
