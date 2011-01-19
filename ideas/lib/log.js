@@ -17,10 +17,10 @@
 define(['exports', './util', './mapred'],
 function(exports, U, Mr) {
 
-  exports.Monitor = Monitor;
+  exports.Log = Log;
 
-  U.inherits(Monitor, U.EventEmitter);
-  function Monitor(averages) {
+  U.inherits(Log, U.EventEmitter);
+  function Log(averages) {
     U.EventEmitter.call(this);
 
     var self = this;
@@ -47,54 +47,54 @@ function(exports, U, Mr) {
     this.heartbeat(1000);
   }
 
-  Monitor.prototype.bind = function(stream, appId) {
-    this.engine.add(stream, new Log(this, appId));
+  Log.prototype.bind = function(stream, appId) {
+    this.engine.add(stream, new AppContext(this, appId));
     return this;
   };
 
-  Monitor.prototype.start = function() {
+  Log.prototype.start = function() {
     this.score.start();
     return this;
   };
 
-  Monitor.prototype.reset = function() {
+  Log.prototype.reset = function() {
     this.score.reset();
     return this;
   };
 
-  Monitor.prototype.stop = function() {
+  Log.prototype.stop = function() {
     this.score.stop();
     return this;
   };
 
-  Monitor.prototype.total = function() {
+  Log.prototype.total = function() {
     return this.score.total;
   };
 
-  Monitor.prototype.heartbeat = function(delay) {
+  Log.prototype.heartbeat = function(delay) {
     this.engine.heartbeat(delay);
     return this;
   };
 
-  Monitor.prototype.map = function(fn) {
+  Log.prototype.map = function(fn) {
     this.engine.map(fn);
     return this;
   };
 
-  Monitor.prototype.inject = function(obj) {
+  Log.prototype.inject = function(obj) {
     this.engine.inject(obj);
     return this;
   };
 
   
-  // ## Log ##
+  // ## AppContext ##
 
-  function Log(top, appId) {
+  function AppContext(top, appId) {
     this.top = top;
     this.appId = appId;
   }
 
-  Log.prototype.log = function(kind, count, channel) {
+  AppContext.prototype.log = function(kind, count, channel) {
     this.top.inject({
       appId: this.appId,
       kind: kind,

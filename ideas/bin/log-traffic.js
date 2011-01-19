@@ -19,23 +19,23 @@ define(['relay/log', 'relay/util'], function(Log, U) {
   
   // ## Important Part ##
 
-  // A monitor is set up. It keeps the last update, a total tally, and
+  // A log is set up. It keeps the last update, a total tally, and
   // a 5 minute average. The `map` method takes events from `stream` and adds
   // them to the log.
 
-  var monitor = new Log.Monitor([300]).bind(stream, 'example');
+  var log = new Log.Log([300]).bind(stream, 'example');
 
-  monitor.map(function(ev) {
+  log.map(function(ev) {
     this.log(ev.type + '-bytes', ev.nbytes, ev.data.to);
     this.log(ev.type + '-count', 1, ev.data.to);
   });
 
-  monitor.start();
+  log.start();
 
   
   // ## Not Important ##
 
-  monitor.on('update', function(stats) {
+  log.on('update', function(stats) {
     console.log('Bytes I/O: %d/%d', stats.count('read-bytes'), stats.count('write-bytes'));
   });
 
@@ -56,7 +56,7 @@ define(['relay/log', 'relay/util'], function(Log, U) {
   });
 
   process.on('SIGINT', function() {
-    var total = monitor.total(),
+    var total = log.total(),
         stats = total.data,
         count = stats.count(),
         avgIn = Math.round(count['read-bytes'] / count['read-count']),

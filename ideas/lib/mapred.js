@@ -78,8 +78,8 @@ define(['exports', './util'], function(exports, U) {
     return this;
   };
 
-  MapRed.prototype.inject = function(obj) {
-    var result = this._reduce(this.data, obj);
+  MapRed.prototype.inject = function(obj, ctx) {
+    var result = this._reduce.call(ctx || this, this.data, obj);
     if (result !== undefined)
       this.data = result;
     return this;
