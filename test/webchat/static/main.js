@@ -1,5 +1,4 @@
-var RELAY_CARRIER_DOMAIN = "localhost";
-var RELAY_CARRIER_PORT   = 8000;
+var RELAY_CARRIER_HOST = [["localhost", 8000]]
 ////////////////////////////////////////////////////////////////////////
 
 var command_history = [];

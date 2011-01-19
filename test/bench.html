@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+  <head>
+    <title>Relay Benchmarker</title>
+
+    <script src="http://code.jquery.com/jquery-1.4.4.js"></script>
+    <script type="text/javascript" src="http://localhost:8000/relayio.js"></script>
+
+<script type="text/javascript">
+
+function log (t) {
+  $(".messages").text(t);
+}
+
+var RELAY_CARRIER_HOST = [["localhost", 8000]]
+
+var relay = new relayio.RelayClient("test",["write_key", "read_key"]);
+var start_time = null;
+relay.connect(function (global_chan) {
+    var total = 0;
+    global_chan.on("message", function (mesg) {
+      log(mesg);
+      if (mesg == "START") {
+        total = 0;
+        start_time = Date.now();
+      } else if (mesg == "STOP") {
+        total += 1;
+        stop_time = Date.now();
+        var t = ((stop_time - start_time)/1000) / total;
+        log("Got " + total + " messages at " + t + " seconds per message (total: " + (stop_time - start_time) / 1000 + " seconds).");
+      } else {
+        total += 1;
+      }
+    });
+    $(".button").mouseup(function () {
+      global_chan.send("START");
+      var i = 0;
+      function aux() {
+        global_chan.send("MESSAGE " + i);
+
+        /*
+          for (var i = 0; i < 2000; i++ ) {
+            global_chan.send("MESSAGE " + i);
+      }
+      global_chan.send("STOP")
+        */
+        
+        i += 1;
+        if (i < 2000) {
+          setTimeout(aux,1);
+        } else {
+          setTimeout(function() {global_chan.send("STOP")}, 1);;
+        }
+
+      }
+      setTimeout(aux, 1); 
+    });
+
+});
+</script>
+
+    </head>
+    <body>
+<a class="button" href="javascript: void(0)">Start!</a>
+<p class="messages"></p>
+    </body>
+  </html>

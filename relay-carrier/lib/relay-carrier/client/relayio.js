@@ -71,6 +71,7 @@ var relayio = {};
     this.get = function get(obj) {
       $.ajax({ "url": obj.url,
                "success": obj.success,
+               "error"  : obj.error,
                "complete": obj.complete
              });
     };
@@ -78,6 +79,7 @@ var relayio = {};
       $.ajax({ "type": 'POST',
                "url": obj.url,
                "success": obj.success,
+               "error"  : obj.error,
                "complete": obj.complete,
                "data": obj.data,
                "contentType": "text/plain"
@@ -85,25 +87,96 @@ var relayio = {};
     };
   };
 
+  function PlainBackend () {
+    var self = this;
+
+    this.POST = "POST";
+    this.GET  = "GET";
+
+    var timeout = 30000;
+
+    this.ajax = function (method, obj) {
+
+      var req = new XMLHttpRequest();
+
+      if (obj.multipart) req.multipart = obj.multipart;
+      req.open(method, obj.url);  
+      if (obj.multipart) req.setRequestHeader("Accept","multipart/x-mixed-replace");
+      
+
+      if (req.multipart === true) {
+        var abort = function(){ req.abort() };
+        var to = setTimeout(abort, timeout);
+        req.onload = function() {
+          if (req.status == 200) {
+            clearTimeout(to);
+            to = setTimeout(abort, timeout);
+            if (obj.success) obj.success(req.responseText);
+          } else {
+            if (obj.error) obj.error(req.status, req.responseText);
+            if (obj.complete) obj.complete();
+          }
+        }
+        req.onabort = function () { 
+          if (obj.complete) obj.complete(); 
+        }
+      } else {
+        req.onreadystatechange = function (event) {
+          if (req.readyState == 4) {
+            if (req.status == '200') {
+              if (obj.success) obj.success(req.responseText);
+            } else {
+              if (obj.error) obj.error();
+            }
+            if(obj.complete) obj.complete(req.status, req.responseText);
+          }
+        };
+      }
+      
+      if (method == self.POST) req.send(obj.data);  
+      else req.send();
+      
+    };
+
+    this.get = function(obj) {
+      this.ajax(this.GET, obj);
+    };
+
+    this.post = function(obj) {
+      this.ajax(this.POST, obj);
+    };
+
+  };
+
+
   function HttpSocket (hostname, port, backend) {
 
     var self = this;
     var session_id;
     var failures = 0;
+    var readers = 0;
 
     function readLoop () {
-      backend.get({ 
-        "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
-        "success": function(data) {
-          failures = 0;
-          var parsed = data.split('\x00');
-          parsed.reverse();
-          for (var i = 0; i < parsed.length; i++) {
-            if (parsed[i]) self.emit("data", parsed[i]);
-          }
-        },
-        "complete": function(){if(failures < 5) setTimeout(readLoop,1)}
-      });
+      function aux() {
+        readers += 1;
+        backend.get({ 
+          "multipart": true,
+          "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
+          "success": function(data) {
+            failures = 0;
+            var parsed = data.split('\x00');
+            parsed.reverse();
+            for (var i = 0; i < parsed.length; i++) {
+              if (parsed[i]) self.emit("data", parsed[i]);
+            }
+          },
+          "error": function () { failures += 1 },
+          "complete": function(){readers -= 1; if(failures < 10) setTimeout(readLoop,1)}
+        });
+      }
+      while (readers < 1) {
+        aux();
+      }
     };
 
     function connect() {
@@ -111,18 +184,24 @@ var relayio = {};
         "url": "http://"+hostname+":"+port+"/stream/open",
         "success": function(data) {
           session_id = data;
-          readLoop();
           self.emit("connect");
+          readLoop();
+        },
+        "complete": function () {
+          readLoop();
         }
       });
     };
     
     this.write = this.send = function write (data, callback) {
-      backend.post({
-        "url":"http://"+hostname+":"+port+"/stream/write/"+session_id, 
-        "data": data, 
-        "success": callback
-      });
+      if (failures < 10) {
+        backend.post({
+          "url":"http://"+hostname+":"+port+"/stream/write/"+session_id, 
+          "data": data, 
+          "error": function () { failures += 1 },
+          "success": callback
+        });
+      }
     };
 
     connect();
@@ -161,10 +240,16 @@ var relayio = {};
   // relay.
 
   function getConnection() {
-    return new HttpSocket(RELAY_CARRIER_DOMAIN ? RELAY_CARRIER_DOMAIN : "api.relay.io", 
-                          RELAY_CARRIER_PORT   ? RELAY_CARRIER_PORT   : "80", 
-                          new JQueryBackend());
-    //return WebSocketSocket;
+    if (RELAY_CARRIER_HOST) {
+      var carrier = RELAY_CARRIER_HOST[Math.floor(Math.random()*RELAY_CARRIER_HOST.length)];
+    } else {
+      var carrier = ["api.relay.io","80"];
+    }
+    if (!window.WebSocket) {
+      return new HttpSocket(carrier[0], carrier[1], new PlainBackend());
+    } else {
+      return new WebSocketSocket(carrier[0], carrier[1]);
+    } 
   };
 
   ////////////////////////////////////////////////////////////////////////
@@ -318,7 +403,7 @@ var relayio = {};
     };
 
     this.send = function send (mesg, callback) {
-      console.log(mesg);
+      //console.log(mesg);
       var mesg = mesg.dump();
       if (callback) {
         var id = getNextMessageId();

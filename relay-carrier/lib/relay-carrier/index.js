@@ -1,5 +1,6 @@
 var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
+var MultiplexedSocket     = require("relay-core/multiplex").MultiplexedSocket;
 var HttpStreamServer      = require("http-stream").HttpStreamServer;
 var net                   = require("net");         
 var http                  = require("http");
@@ -42,8 +43,8 @@ ConnectionPool.prototype = events.EventEmitter.prototype;
 exports.app = function () {
 
   var pool = new ConnectionPool();
-  pool.addConnection(new ApplicationSocketLink(net.createConnection(8124, "localhost")));
-  pool.addConnection(new ApplicationSocketLink(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");
@@ -64,17 +65,16 @@ exports.app = function () {
   // proxy websocket connection directly to our backend...
 
   function proxy(sock) {
-    console.log("GOT CONNECTION");
     var chan = pool.getConnection().newChannel();
     chan.on("end", function () {
       sock.close();
     });
     chan.on("data", function (data) {
-      console.log(" < DATA FROM SERVER: " + JSON.stringify(data.dump()));
-      sock.send(JSON.stringify(data.dump()));
+      //console.log(" < DATA FROM SERVER: " + data);
+      sock.send(data);
     });
     sock.on("message", function (data) {
-      console.log(" > DATA FROM BROWSER: " + data);
+      //console.log(" > DATA FROM BROWSER: " + data);
       chan.writeRaw(data);
     });
     sock.on("close", function () {
@@ -85,6 +85,7 @@ exports.app = function () {
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
 
+  console.log(process.argv)
   var port = process.argv[3] ? process.argv[3] : "8000";
   var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
 

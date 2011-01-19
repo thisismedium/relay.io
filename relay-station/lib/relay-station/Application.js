@@ -1,5 +1,5 @@
 var api                   = require("relay-core/api");
-var groupChannelsBySocket = require("relay-core/network").groupChannelsBySocket;
+var groupChannelsBySocket = require("relay-core/multiplex").groupChannelsBySocket;
 var Key                   = require("./Key").Key;
 
 // Application ////////////////////////////////////////////////////////////
@@ -152,8 +152,10 @@ function Application (appId, keys) {
     };
 
     // Client said "Hello", they are brand new to the world...
-    this.Hello = function (request) {
+    this.Hello = function (request, resp) {
 
+      console.log("Got hello");
+      
       // If the request includes keys setup new permissions for the user.
       if (request.getKeys()) {
         request.getKeys().forEach(function(key){
@@ -171,7 +173,7 @@ function Application (appId, keys) {
       joinRoute("#global", client);
 
       // Inform the client about their client_id.
-      client.send(request.replyWith(new api.Welcome(client.getClientId())));
+      resp.reply(new api.Welcome(client.getClientId()));
 
       // Inform the global channel of the clients activation.
       sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
