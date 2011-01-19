@@ -43,21 +43,30 @@ function readNBytes (to_read) {
 };
 
 /*
-  # MultiplexedSocket
-  
-  ApplicataionSocketLink has the job of organizing a socket into multiple sessions
-  a session is reffered to as channel.  The idea is that we should be able to divide
-  a socket into several channels and work with these channels as if they where simply
-  plain sockets; the job of sending message from the socket to the right clients is left
-  up to the MultiplexedSocket.  
+  new MultiplexedSocket -> (`a socket`, `a socket wrapper`)
 
-  Multisession sockets are useful in relay because an http proxy might have a many clients 
-  but only needs one socket open to the backend proccess.  The MultiplexedSocket also
-  has the important quality of being able to send a single message to many channels at once.
-  This should prevent the backend from having to send the same message more than once. The 
-  downside is that workers must organize the virtual sockets its handling specifically to 
-  take advantage of the many to one transfer, this module provides some useful utility functions
-  to make this easier namely 'groupChannelsBySocket'.
+  // Methods: 
+
+    .newChannel -> new SocketChannel
+    
+  // Events:
+
+     "channel" -> new SocketChannel
+
+
+  new SocketChannel -> (`a socket`)
+
+  // Methods: 
+
+    .write -> `a string` -> null
+    .multiWrite -> ([SocketChannel], `a string`) -> null
+    
+  // Events:
+
+    "data"  -> `a string` 
+    "error" -> `an error`
+    "close" -> null
+    "end"   -> null
 
  */
 function MultiplexedSocket (stream) {
@@ -81,33 +90,6 @@ function MultiplexedSocket (stream) {
   stream.removeAllListeners("data");
 
   var streamE = new iter.StreamEnumerator(stream);
-
-  /*
-  The fun starts here, we need to read in a header which contains the
-  size of the channels list and the body of the message.
- 
-  The channel list header part is 2 bytes wide and represents the number of channels 
-  that the message will be sent to.
-
-  The size of the body is also 2 bytes wide and simply indicates the size in bytes of
-  the messages body.
-
-  We must first collect the head in total and then calculate the amount of data to read
-  after the header so to break it down it looks a bit like this...
-
-  -----------------------------
-  read 1 byte (the mode byte)
-  |
-  ` read 4 bytes
-    A = parse channel list size
-    B = parse message size
-    Y = (A * 2) + B
-    read Y bytes
-  ----------------------------
-
-  */
-
-  // please watch your step.
 
   var mode_handlers = {};
   mode_handlers[MODE_MESG] = mesgHandler;
@@ -265,14 +247,11 @@ function MultiplexedSocket (stream) {
     }
 
     function doWrite (buf) {
-      // this does not seem to work at for some reason :(
       if (stream.writeable !== false) {
         try {
-          // debug(buf);
-          // debug(buf.toString());
           stream.write(buf);
         } catch (e) {
-        
+          this.emit("error", e)
         }
       }      
     }
