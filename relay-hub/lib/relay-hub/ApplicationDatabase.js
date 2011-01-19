@@ -1,4 +1,4 @@
-var tc = require("node-tokyocabinet/tcasync");
+var tc  = require("node-tokyocabinet/tcasync");
 var api = require("relay-core/api");
 
 var ApplicationDatabase = function ApplicationDatabase (path) {

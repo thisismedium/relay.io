@@ -73,7 +73,6 @@ var ApplicationSocketLinkChannel = function (socketChan) {
       try {
         var json = JSON.parse(data);
       } catch (e) {
-        console.log(e);
         self.emit("error", e);
       }
     }

@@ -17,13 +17,9 @@ var apps = {
 };
 
 var RelayStation = function () {
-  
-  var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
-  hubConnection.write(new api.RegisterStation("test"), function(data) {
-        console.log("HELLLLOOOO WORLDDDDDDD");
-        console.log(data);
-  });
 
+  var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
+  
   // This is the object that all of the request are initially 
   // dispatached to (using the api.runRPC controller). 
   function RelayStationRPC (stream) {
@@ -37,19 +33,21 @@ var RelayStation = function () {
       console.log("Got Hello!");
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
-      hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()));
-      var appId = request.getBody().getAppId();
-      if (!apps[appId]) {
-        // no application found, report the error
-        console.log("Invalid Application");
-        resp.reply(new api.InvalidApplicationError());
-      } else {
-        // application found, tell the application to assume this
-        // stream (.assumeStream should take the control away from the
-        // RelayStation so all messages are passed directly to the application)
-        stream.bindRpcHandler(new apps[appId].rpcHandler());
-        stream.dispatch(request);
-      }
+      hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()), function (mesg) {
+        console.log(mesg);
+        var appId = request.getBody().getAppId();
+        if (!apps[appId]) {
+          // no application found, report the error
+          console.log("Invalid Application");
+          resp.reply(new api.InvalidApplicationError());
+        } else {
+          // application found, tell the application to assume this
+          // stream (.assumeStream should take the control away from the
+          // RelayStation so all messages are passed directly to the application)
+          stream.bindRpcHandler(new apps[appId].rpcHandler());
+          stream.dispatch(request);
+        }
+      });
     };
 
     // the runRPC framework will all InvalidRequest when a message can not
@@ -67,11 +65,18 @@ var RelayStation = function () {
       stream.bindRpcHandler(new RelayStationRPC(stream));
     });
   });
+
   
-  this.listen = function () {
-    return server.listen.apply(server, arguments);
+  this.listen = function (port, host) {
+    hubConnection.write(new api.RegisterStation("test"), function(data) {
+      if (data.getType() == "Error") {
+        console.log(" - Could not establish a connection with the hub");
+      } else {
+        console.log(" + Connection to the hub has been established");
+        return server.listen(port, host);    
+      }
+    });
   }
-  
 
 };
 
@@ -81,7 +86,6 @@ exports.app = function () {
   console.log("Starting RelayStation listening on port: " + port + " host: " + host);
   (new RelayStation()).listen(port, host);
 }
-
 
 process.on('uncaughtException', function (err) {
   console.log(err.stack);
