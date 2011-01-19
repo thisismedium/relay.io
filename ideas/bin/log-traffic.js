@@ -14,40 +14,33 @@
 define(['relay/log', 'relay/util'], function(Log, U) {
 
   var addr = process.argv[2],
+      stream = new U.EventEmitter();
 
-      // Simulate a real stream with an EventEmitter.
-      stream = new U.EventEmitter(),
+  
+  // ## Important Part ##
 
-      // Watch for `from` and `to` properties of events in the
-      // stream. Set the heartbeat to 1 second.
-      log = new Log.Log(['from', 'to'])
-        .add(stream)
-        .heartbeat(1000),
+  // A monitor is set up. It keeps the last update, a total tally, and
+  // a 5 minute average. The `map` method takes events from `stream` and adds
+  // them to the log.
 
-      // Summarize the log. When called this way, the most recent
-      // stats, a 5 minute average, and a total of stats will be kept.
-      top = new Log.Top(log, [300]);
+  var monitor = new Log.Monitor([300]).bind(stream, 'example');
 
-  // Show updated stats each time the Top instance updates
-  // itself. This is driven by the log's heartbeat.
-  top.on('update', function() {
-    var last = this.last,
-        total = this.total,
-        avg = total.average();
-
-    console.log('i/o last: %d/%d avg: %d/%d total: %d/%d time: %d',
-      last.bytesIn, last.bytesOut,
-      avg.bytesIn, avg.bytesOut,
-      total.bytesIn, total.bytesOut,
-      avg.delta
-    );
+  monitor.map(function(ev) {
+    this.log(ev.type + '-bytes', ev.nbytes, ev.data.to);
+    this.log(ev.type + '-count', 1, ev.data.to);
   });
 
-  // Start collecting statistics.
-  top.start();
+  monitor.start();
+
+  
+  // ## Not Important ##
+
+  monitor.on('update', function(stats) {
+    console.log('Bytes I/O: %d/%d', stats.count('read-bytes'), stats.count('write-bytes'));
+  });
 
   // This driver loop simulates a real stream. Packets sent to this
-  // computer's address are considered `data` events. Packets sent
+  // computer's address are considered `read` events. Packets sent
   // from this computer's address are considered `write` events.
   U.readlines(process.openStdin(), function(line) {
     var probe = line.match(/IP (\S+)\.\d+ > (\S+)\.\d+.+length (\d+)/),
@@ -56,44 +49,25 @@ define(['relay/log', 'relay/util'], function(Log, U) {
     if (probe && probe[1] == addr)
       name = 'write';
     else if (probe && probe[2] == addr)
-      name = 'data';
+      name = 'read';
 
     if (name)
       stream.emit(name, { from: probe[1], to: probe[2] }, parseInt(probe[3]));
   });
 
   process.on('SIGINT', function() {
-    var stats = top.average[300].stats(),
-        avg = stats.average(),
-        rate = top.average[300].avgRate();
+    var total = monitor.total(),
+        stats = total.data,
+        count = stats.count(),
+        avgIn = Math.round(count['read-bytes'] / count['read-count']),
+        avgOut = Math.round(count['write-bytes'] / count['write-count']);
 
-    console.log('\n## 5 Minute Breakdown ##\n');
-
-    var tally = [];
-    for (var key in stats._in['from']) {
-      tally.push({
-        key: key,
-        bytesIn: stats._in['from'][key] + stats._in['to'][key],
-        bytesOut: stats._out['from'][key] + stats._out['to'][key]
-      });
-    }
-
-    tally.sort(function(a, b) {
-      var ta = a.bytesIn + a.bytesOut,
-          tb = a.bytesOut + b.bytesOut;
-      return (ta < tb) ? -1 : (ta == tb) ? 0 : 1;
-    });
-
-    tally.forEach(function(entry) {
-      console.log('%s i/o: %d/%d', entry.key, entry.bytesIn, entry.bytesOut);
-    });
-
+    console.log('\n## Summary ##');
     console.log('');
-    console.log('total i/o:    %d/%d', stats.bytesIn, stats.bytesOut);
-    console.log('avg i/o:      %d/%d', avg.bytesIn, avg.bytesOut);
-    console.log('avg rate i/o: %d/%d', rate.bytesIn, rate.bytesOut);
-    console.log('avg load:     %d', rate.bytes);
-    console.log('interval:     %d seconds', avg.delta);
+    console.log('Bytes I/O:     %d/%d', count['read-bytes'], count['write-bytes']);
+    console.log('Messages I/O:  %d/%d', count['read-count'], count['write-count']);
+    console.log('Avg Bytes I/O: %d/%d', avgIn, avgOut);
+    console.log('Time:          %d seconds', total.delta() / 1000);
     console.log('');
 
     process.exit(0);
