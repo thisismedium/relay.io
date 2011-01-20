@@ -174,7 +174,7 @@ var relayio = {};
           "complete": function(){readers -= 1; if(failures < 10) setTimeout(readLoop,1)}
         });
       }
-      while (readers < 1) {
+      while (readers < 2) {
         aux();
       }
     };
@@ -295,8 +295,8 @@ var relayio = {};
     this.body = {"address": channel};
   });
 
-  var Exit = $message(function(channel) {
-    this.type = "Exit";
+  var Leave = $message(function(channel) {
+    this.type = "Leave";
     this.body = {"address": channel };
   });
 
@@ -325,7 +325,7 @@ var relayio = {};
     };
 
     this.exit = function exit(callback) {
-      var mesg = new Exit(this.getName());
+      var mesg = new Leave(this.getName());
       parent.send(mesg, callback);
     };
 

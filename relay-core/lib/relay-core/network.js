@@ -83,7 +83,6 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   });
 
   this.bindRpcHandler = function (handler) {
-    console.log("Switching RPC handler");
     if (handler.initialize) handler.initialize(this);
     rpcHandler = handler;
   }

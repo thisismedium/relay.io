@@ -5,7 +5,7 @@ var Buffer = require("buffer").Buffer;
 var event  = require("events");
 var api    = require("./api");
 
-var DEBUG = true;
+var DEBUG = false;
 
 function debug (st) {
   if (DEBUG) console.log(st);

@@ -182,42 +182,42 @@ function Application (appId, keys) {
 
     // Client said "Join", the client wants to join a channel to listen for updates
 
-    this.Join = function (request) {
+    this.Join = function (request, resp) {
       var addr = request.getBody().getAddress();
       if (client.canRead() && joinRoute(addr, client)) {
         if (!addr.match("^#[a-zA-Z1-9]*$")) {
-          request.replyWith(new api.PermissionDeniedError()).sendTo(client);
+          resp.reply(new api.PermissionDeniedError());
         } else {
           // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
           sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
           // Inform the client of a successful "Join".
-          client.send(request.replyWith(new api.Success()));
+          resp.reply(new api.Success());
         }
       } else {
-        client.send(request.replyWith(new api.PermissionDeniedError()));
+        resp.reply(new api.PermissionDeniedError());
       }
     }
 
-    this.GetStatus = function (request) {
+    this.GetStatus = function (request, resp) {
       var route = request.getBody().getAddress();
       if (routes[route]) {
-        client.send(request.replyWith(new api.ResourceStatus(route, routes[route].listSubscribers())));
+        resp.reply(new api.ResourceStatus(route, routes[route].listSubscribers()));
       } else {
-        client.send(request.replyWith(new api.PermissionDeniedError()));
+        resp.reply(new api.PermissionDeniedError());
       }
     }
 
     // Client said "Leave" and wanted to leave a room.
 
-    this.Exit = function (request) {
+    this.Leave = function (request, resp) {
       var addr = request.getBody().getAddress();
       removeSubscriber(addr, client);
       sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
-      client.send(request.replyWith(new api.Success()));
+      resp.reply(new api.Success());
     }
 
     // The client as sent us a "Message", we need to route it to the right users.
-    this.Message = function (request) {
+    this.Message = function (request, resp) {
 
       if (client.canWrite()) {
         // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
@@ -228,15 +228,16 @@ function Application (appId, keys) {
           // Send the message to the proper channels.
           sendMessageToRoute(request.getTo(), request);
           // Inform the client that their message has been delivered.
-          client.send(request.replyWith(new api.Success()));
+          resp.reply(new api.Success());
+          
         });
       } else {
         client.send(new api.PermissionDeniedError());
       }
     }
 
-    this.InvalidRequest = function (request) {
-      request.replyWith(new api.InvalidRequestError()).sendTo(client);
+    this.InvalidRequest = function (request, resp) {
+      resp.reply(new api.InvalidRequestError());
     };
 
   };

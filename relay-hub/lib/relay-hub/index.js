@@ -10,17 +10,27 @@ function Hub () {
   var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
 
   this.RpcHandler = function () {
+
     self = this;
     this.stream = null;
+
     this.initialize = function (stream) {
       this.stream = stream;
     }
+
+    this.log = function (data) {
+      console.log(" + Got %s message", data.getType());
+    };
+
+
     this.GetApplicationData = function (mesg, resp) {
       appDB.getApplicationData(mesg.getAppId(), function (err, data) {
         if (err || !data) {
           resp.reply(api.InvalidApplicationError());
         } else {
-          resp.reply(data);
+          var mesg = new api.ApplicationData();
+          mesg.load(data);
+          resp.reply(mesg);
         }
       });
     }
@@ -32,7 +42,7 @@ function RelayStationRegisterRPC (stream) {
   hub = new Hub();
 
   this.log = function (data) {
-    console.log(data);
+    console.log(" + Got %s message", data.getType());
   };
 
   this.RegisterStation = function (mesg, resp) {

@@ -9,16 +9,27 @@ var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 var api = require("relay-core/api");
 var net = require("net");
 
-// Test applications
-var apps = {
-  "test": new Application("test", 
-                          [new Key("read_key",  api.PERM_READ), 
-                           new Key("write_key", api.PERM_WRITE)])
-};
-
 var RelayStation = function () {
 
   var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
+
+  var apps = {};
+
+  function getApplication (name, callback) {
+    if (!apps[name]) {
+      hubConnection.write(new api.GetApplicationData(name), function (mesg) {
+        if (mesg.getType() != "Error") {
+          var newApp = new Application(mesg.getBody().getAppId(), mesg.getBody().getKeys());
+          apps[mesg.getBody().getAppId()] = newApp;
+          callback(null, newApp);
+        } else {
+          callback(mesg, null);
+        }
+      });
+    } else {
+      callback(null, apps[name]);
+    }
+  }
   
   // This is the object that all of the request are initially 
   // dispatached to (using the api.runRPC controller). 
@@ -33,18 +44,15 @@ var RelayStation = function () {
       console.log("Got Hello!");
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
-      hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()), function (mesg) {
-        console.log(mesg);
-        var appId = request.getBody().getAppId();
-        if (!apps[appId]) {
+      getApplication(request.getBody().getAppId(), function (err, app) {
+        if (err) {
           // no application found, report the error
-          console.log("Invalid Application");
           resp.reply(new api.InvalidApplicationError());
         } else {
           // application found, tell the application to assume this
           // stream (.assumeStream should take the control away from the
           // RelayStation so all messages are passed directly to the application)
-          stream.bindRpcHandler(new apps[appId].rpcHandler());
+          stream.bindRpcHandler(new app.rpcHandler());
           stream.dispatch(request);
         }
       });

@@ -50,14 +50,15 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
  */
 
-// autoMessage wraps autoRecord and adds a few methods...
+// autoMessage wraps autoRecord...
+// autoRecord builds serializable JavaScript objects 
+// automagically.  One could manually create a serializable
+// javascript object, it just needs to have a .load method
+// which takes json data, and the .dump method which returns
+// json data.
 
 function $autoMessage (fn) {
   return autoRecord(function () {
-    this.replyWith = function (replyMesg) {
-      if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
-      return replyMesg;
-    };
     if (fn) fn.apply(this, arguments);
   });
 }
@@ -99,15 +100,15 @@ function $autoMessage (fn) {
                  "body"  : error_message ? error_message : "" });
   });
 
-  exports.InvalidApplicationError = function () { 
+  exports.invalidApplicationError = function () { 
     return new exports.Error(ST_INVALID_APP, "Invalid Application");
   };
 
-  exports.PermissionDeniedError = function () {
+  exports.permissionDeniedError = function () {
     return new exports.Error(ST_PERMISSION_DENIED, "Permission Denied");
   };
 
-  exports.InvalidRequestError = function () {
+  exports.invalidRequestError = function () {
     return new exports.Error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
@@ -168,9 +169,9 @@ function $autoMessage (fn) {
     this.getKeys    = function () { return this.getBody().getKeys() }
   });
 
-  exports.Exit = $autoMessage (function(address) {
+  exports.Leave = $autoMessage (function(address) {
     this.load({
-      "type":"Exit", 
+      "type":"Leave", 
       "body": {
         "address": address 
       }
@@ -240,18 +241,18 @@ function $autoMessage (fn) {
 
 
   // ApplicationData
-  exports.ApplicationData = $autoMessage(function (appId, keys) {
+  exports.ApplicationData = $autoMessage(function (appId, keys, channels) {
     this.load({"type": "ApplicationData", 
                "body": {
                  "appId": appId,
-                 "keys": keys
+                 "keys": keys,
+                 "channels": channels
                }
               });
+    this.getAppId = function () { return this.getBody().getAppId(); }
+    this.getKey   = function () { return this.getBody().getKeys(); }
   });
 
-  exports.Key = $autoMessage(function (name, value, perms) {
-    this.load({"name": name, "value": value, "perms": perms});
-  });
 
   exports.RegisterStation = $autoMessage(function (key) {
     this.load({"type": "RegisterStation", "body": { "key": key }});
@@ -275,14 +276,13 @@ function $autoMessage (fn) {
     "Welcome": exports.Welcome,
 
     "Join"   : exports.Join, // -> Success | Error
+    "Leave"  : exports.Leave,
 
     "ClientEnter": exports.ClientEnter,
     "ClientExit": exports.ClientExit,
 
     "GetStatus": exports.GetStatus, // -> Status | Error
     "ResourceStatus": exports.ResourceStatus,
-
-    "Exit"  : exports.Exit, // -> Success | Error
 
     "Message": exports.Message, // -> Success | Error
 
@@ -302,22 +302,5 @@ function $autoMessage (fn) {
       return (new cons()).load(data)
   };
 
-  exports.runRPC = function (envObj) {
-    return function (data) {
-      if (envObj["log"]) envObj["log"](data);
-      if (envObj[data.getType()])
-        envObj[data.getType()](data);
-      else
-        envObj["InvalidRequest"](data);
-    };
-  };
-
-  exports.bindStreamToRpc = function (stream, env) {
-    stream.removeAllListeners("data");
-    if (env.initialize) { 
-      env.initialize(stream);
-    }
-    stream.on("data", exports.runRPC(env));
-  };
 
 })(exports)
