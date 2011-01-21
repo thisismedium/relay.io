@@ -30,6 +30,7 @@ function Hub () {
         } else {
           var mesg = new api.ApplicationData();
           mesg.load(data);
+          console.log(mesg);
           resp.reply(mesg);
         }
       });

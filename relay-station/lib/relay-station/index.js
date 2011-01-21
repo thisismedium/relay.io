@@ -18,6 +18,7 @@ var RelayStation = function () {
   function getApplication (name, callback) {
     if (!apps[name]) {
       hubConnection.write(new api.GetApplicationData(name), function (mesg) {
+        console.log(mesg);
         if (mesg.getType() != "Error") {
           var newApp = new Application(mesg.getBody().getAppId(), mesg.getBody().getKeys());
           apps[mesg.getBody().getAppId()] = newApp;

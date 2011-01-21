@@ -1,67 +1,6 @@
-var autoRecord = require("./utils/autorecord").autoRecord;
-
-/*
-  Messages are building blocks of a good conversation, the following is how 
-  the client converses with the server.  Certain parts of the converstation 
-  have different meanings based upon if the member is a server or client.
-
-  Starting a session
-  -------------------
-
-  To start a session a client must great the server with the upmost politeness.  
-  If the client wishes to do anything at all it must present keys.
-
-  Client says: Hello <application> {I have} <[keys: key]>
-
-  Server says: (Hello | Welcome) <client_id>
-             | Error "Permission Denied"
-             | Error "Invalid Key(s)"
-
-  Joining a channel
-  -----------------
-
-  Client says: Join <channel> 
-
-  Server says: (Join | Enter)
-             | Error "Permission Denied"
-
-  Recieving a Message
-  -------------------
-  
-  Client says: (nothing after a Join)
-  
-  Server says: Message to: <client|channel> from: <client|channel> {with the} <message_body>
-
-  Sending a Message
-  -----------------
-
-  Client says: Message to: <client|channel> from: <client> {with the} <message_body>
-
-  Server says: MessageAccepted
-
-*/
-
-
-/*
-  Status Codes: 
-
-     2__: Success
-     5__: Error
-
- */
-
-// autoMessage wraps autoRecord...
-// autoRecord builds serializable JavaScript objects 
-// automagically.  One could manually create a serializable
-// javascript object, it just needs to have a .load method
-// which takes json data, and the .dump method which returns
-// json data.
-
-function $autoMessage (fn) {
-  return autoRecord(function () {
-    if (fn) fn.apply(this, arguments);
-  });
-}
+// The Relay API is defined below
+// it is based on the simple JSON-RPC (2.0) protocol.
+// We shall used named parameters on all request.
 
 (function (exports) {
 
@@ -92,24 +31,39 @@ function $autoMessage (fn) {
   var ST_PERMISSION_DENIED = 502; // Permission Denied
   var ST_INVALID_REQUEST   = 503; // Invalid Request
 
+  function request (method, params) {
+    return {
+      "method": method,
+      "params": params
+    }
+  };
+  exports.request = request;
+
+  function response (result, error) {
+    return { 
+      "result": result,
+      "error" : error ? error : null
+    }
+  }
+  exports.response = response;
+  
+  function error (code, message) {
+    return response(null, {"code": code, "message": message});
+  }
+  exports.error = error;
+
   // Errors...
 
-  exports.Error = $autoMessage(function (error_code, error_message) {
-    this.load( { "type": "Error",
-                 "status": error_code ? error_code : ST_ERROR,
-                 "body"  : error_message ? error_message : "" });
-  });
-
   exports.invalidApplicationError = function () { 
-    return new exports.Error(ST_INVALID_APP, "Invalid Application");
+    return error(ST_INVALID_APP, "Invalid Application");
   };
 
   exports.permissionDeniedError = function () {
-    return new exports.Error(ST_PERMISSION_DENIED, "Permission Denied");
+    return error(ST_PERMISSION_DENIED, "Permission Denied");
   };
 
   exports.invalidRequestError = function () {
-    return new exports.Error(ST_INVALID_REQUEST, "Invalid Request");
+    return error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
   
@@ -117,190 +71,66 @@ function $autoMessage (fn) {
 
   // General Success Message...
 
-  exports.Success = $autoMessage(function () {
-    this.load({"type": "Success",
-               "status": ST_SUCCESS});
-  });
+  exports.Success = function () {
+    return response({"status": "ok"});
+  };
 
   // Hello - Initialize a connection
+ 
+  exports.Hello = function (keys, appId) {
+    return request("Hello", { "keys": keys, "appId": appId });
+  }
 
-  exports.Hello = $autoMessage (function(app_id, keys) {
-    this.load({
-      "type": "Hello",
-      "body": { 
-        "keys": keys, 
-        "appId": app_id 
-      }
-    });
-    this.getKeys = function () {
-      if (this._data_.body.keys) {
-        return this._data_.body.keys;
-      } else {
-        return undefined;
-      }
-    }
-  });
-  
-  exports.Welcome = $autoMessage (function (client_id) {
-    this.load({
-      "status": ST_SUCCESS,
-      "type": "Welcome",
-      "body": {
-        "clientId": client_id
-      }
-    });
-    this.getClientId = function () {
-      return this.getBody().getClientId();
-    }
-    
-  });
+  exports.HelloResponse = function (clientId) {
+    return response({"clientId": client_id});
+  }
 
   // Join - Listen for messages
 
-  exports.Join = $autoMessage (function (address, keys) {
-    this.load({
-      "type": "Join",
-      "body": {
-        "address": address,
-        "keys": keys
-      }
-    });
-    this.getAddress = function () { return this.getBody().getAddress() }
-    this.getKeys    = function () { return this.getBody().getKeys() }
-  });
-
-  exports.Leave = $autoMessage (function(address) {
-    this.load({
-      "type":"Leave", 
-      "body": {
-        "address": address 
-      }
-    });  
-    this.getAddress = function () { return this.getBody().getAddress() }
-  });
-
-
-  exports.ClientEnter = $autoMessage(function(client_id, channel) {
-    this.load({ "type": "ClientEnter", 
-                "body": { 
-                  "clientId": client_id,
-                  "channelId": channel }
-              });
-  });
-
-  exports.ClientExit = $autoMessage(function(client_id, channel) {
-    this.load({ 
-      "type": "ClientExit", 
-      "body": { 
-        "clientId": client_id,
-        "channelId": channel }
-    });
-  });
-
-  exports.GetStatus = $autoMessage(function(channel) {
-    this.load({
-      "type": "GetStatus",
-      "body": { 
-        "address": channel
-      }
-    });
-    this.getChannelId = function () {
-      return this.getBody();
-    }
-  });
-  
-  exports.ResourceStatus = $autoMessage(function(channel, clients) {
-    this.load({"type": "ResourceStatus",
-               "body": {
-                 "channelId": channel,
-                 "clientsList": clients
-               }
-              });
-  });
-
-  // Message - a message
-
-  exports.Message = $autoMessage (function (to, from, body) {
-    this.load({
-      "type": "Message",
-      "to": to,
-      "from": from,
-      "body": body
-    });
-  });
-
-
-  // InvalidMessage
-
-  exports.InvalidMessage = $autoMessage(function (mesg) {
-    this.load({"type": "InvalidMessage", "message": mesg });
-    this.getMesgId = function () {
-      return mesg.mesgId;
-    }
-  });
-
-
-  // ApplicationData
-  exports.ApplicationData = $autoMessage(function (appId, keys, channels) {
-    this.load({"type": "ApplicationData", 
-               "body": {
-                 "appId": appId,
-                 "keys": keys,
-                 "channels": channels
-               }
-              });
-    this.getAppId = function () { return this.getBody().getAppId(); }
-    this.getKey   = function () { return this.getBody().getKeys(); }
-  });
-
-
-  exports.RegisterStation = $autoMessage(function (key) {
-    this.load({"type": "RegisterStation", "body": { "key": key }});
-    this.getKey = function () { return this.getBody().getKey() }
-  });
-
-  exports.GetApplicationData = $autoMessage(function (appId) {
-    this.load({"type": "GetApplicationData", "body": { "appId": appId }});
-    this.getAppId = function () { return this.getBody().getAppId() };
-  });
-
-  // convert raw json data into a fancier Javascript function with accessor
-  // methods and what not.
-
-
-  var mesg_constructors = {
-
-    "Success": exports.Success,
-
-    "Hello"  : exports.Hello, // -> Welcome | Error
-    "Welcome": exports.Welcome,
-
-    "Join"   : exports.Join, // -> Success | Error
-    "Leave"  : exports.Leave,
-
-    "ClientEnter": exports.ClientEnter,
-    "ClientExit": exports.ClientExit,
-
-    "GetStatus": exports.GetStatus, // -> Status | Error
-    "ResourceStatus": exports.ResourceStatus,
-
-    "Message": exports.Message, // -> Success | Error
-
-    "RegisterStation": exports.RegisterStation,
-    "GetApplicationData": exports.GetApplicationData,
-    "ApplicationData": exports.ApplicationData,
-
-    "Error"  : exports.Error
-
-  }
-
-  exports.constructMessage = function (data) {
-    var cons = mesg_constructors[data.type];
-    if (!cons) 
-      return (new exports.InvalidMessage(data));
-    else
-      return (new cons()).load(data)
+  exports.Join = function (address, keys) {
+    return request("Join", {"address": address, "keys": keys});
   };
 
+  exports.Leave = function (address) {
+    return request ("Leave", {"address": address});
+  };
+
+  exports.GetStatus = function (channel) {
+    return request ("GetStatus", {"address": channel});
+  };
+
+  exports.GetStatusResponse = function (channel, clients) {
+    return response ({"address": channel, "clientList": clients});
+  };
+
+  // Events...
+
+  exports.ClientEnter = function (clientId, channel) {
+    return request ("ClientEnter", {"clientId": clientId, "channelId": channel});
+  };
+
+  exports.ClientExit = function (clientId, channel) {
+    return request ("ClientExit", {"clientId": clientId, "channelId": channel});
+  };
+  
+  // Message...
+
+  exports.Message = function (to, from, mesg) {
+    return request("Message", {"to": to, "from": from, "message": mesg});
+  };
+
+  // Internal API...
+
+  exports.RegisterStation = function (key) {
+    return request("RegisterStation", {"key": key});
+  };
+
+  exports.GetApplicationData = function (appId) {
+    return request("GetApplicationData", {"appId": appId});
+  };
+
+  exports.GetApplicationDataResponse = function (keys, channels) {
+    retunr response({"keys": keys, "channels": channels});
+  };
 
 })(exports)

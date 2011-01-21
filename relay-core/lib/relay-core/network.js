@@ -47,17 +47,17 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   self.getSocket = function () { return socketChan };
 
   this.dispatch = function (mesg) {
-    if (mesg.getMesgId && callbacks[mesg.getMesgId()]) {
-      callbacks[mesg.getMesgId()](mesg);
+    if (mesg.id && callbacks[mesg.id]) {
+      callbacks[mesg.id](mesg);
     } else if (rpcHandler) {
       if (rpcHandler.log) {
         rpcHandler.log(mesg);
       }
-      if (mesg.getType && rpcHandler[mesg.getType()]) {
-        rpcHandler[mesg.getType()](mesg, {
+      if (mesg.method && rpcHandler[mesg.method]) {
+        rpcHandler[mesg.method](mesg, {
           "reply": function (replyMessage, callback) {
-            if (mesg.getMesgId) {
-              replyMessage._data_.mesgId = mesg.getMesgId();
+            if (mesg.id) {
+              replyMessage.id = mesg.id;
             } 
             self.write(replyMessage, callback);
           }
@@ -77,8 +77,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
       }
     }
     if (json) {
-      var mesg = api.constructMessage(json);
-      self.dispatch(mesg);
+      self.dispatch(json);
     }
   });
 
@@ -92,18 +91,17 @@ var ApplicationSocketLinkChannel = function (socketChan) {
 
   this.end = this.destroy = function () { return socketChan.end() }
 
-  this.write = this.send = function (obj, callback) {
-    var data = obj.dump();
+  this.write = this.send = function (json, callback) {
     if (callback) {
-      if (!data.mesgId) {
+      if (!json.id) {
         var mid = getNextMessageId();
       } else {
-        var mid = data.mesgId;
+        var mid = json.id;
       }
       callbacks[mid] = callback;
-      data.mesgId = mid;
+      json.id = mid;
     }
-    socketChan.write(JSON.stringify(data));
+    socketChan.write(JSON.stringify(json));
   };
 
   this.writeRaw = function (data) { socketChan.writeRaw(data) };
