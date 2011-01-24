@@ -1,6 +1,5 @@
+var it = require("iterators");
 // The Relay API is defined below
-// it is based on the simple JSON-RPC (2.0) protocol.
-// We shall used named parameters on all request.
 
 (function (exports) {
 
@@ -31,24 +30,18 @@
   var ST_PERMISSION_DENIED = 502; // Permission Denied
   var ST_INVALID_REQUEST   = 503; // Invalid Request
 
-  function request (method, params) {
-    return {
-      "method": method,
-      "params": params
+  function message (type, to, from, body) {
+    var mesg = {
+      "type": type,  
+      "body": body
     }
+    if (to) mesg["to"] = to;
+    return mesg;
   };
-  exports.request = request;
+  exports.message = message;
 
-  function response (result, error) {
-    return { 
-      "result": result,
-      "error" : error ? error : null
-    }
-  }
-  exports.response = response;
-  
   function error (code, message) {
-    return response(null, {"code": code, "message": message});
+    return message("Error", null, null, {"code": code, "message": message});
   }
   exports.error = error;
 
@@ -71,66 +64,67 @@
 
   // General Success Message...
 
-  exports.Success = function () {
-    return response({"status": "ok"});
+  exports.Okay = function () {
+    return message("Okay");
   };
 
   // Hello - Initialize a connection
  
-  exports.Hello = function (keys, appId) {
-    return request("Hello", { "keys": keys, "appId": appId });
+  exports.Hello = function (appId, keys) {
+    return message("Hello", appId, null, {"keys": keys});
   }
 
-  exports.HelloResponse = function (clientId) {
-    return response({"clientId": client_id});
+  exports.Welcome = function (clientId) {
+    return message("Welcome", clientId);
   }
 
   // Join - Listen for messages
 
   exports.Join = function (address, keys) {
-    return request("Join", {"address": address, "keys": keys});
+    return message("Join", address, null, {"keys": keys});
   };
 
   exports.Leave = function (address) {
-    return request ("Leave", {"address": address});
+    return message ("Leave", address);
   };
 
   exports.GetStatus = function (channel) {
-    return request ("GetStatus", {"address": channel});
+    return message ("GetStatus", channel);
   };
 
-  exports.GetStatusResponse = function (channel, clients) {
-    return response ({"address": channel, "clientList": clients});
+  exports.Status = function (channel, clients) {
+    var mesg = message("Status", null, channel, {"clientList": clients});
+    return message;
   };
 
   // Events...
-
+    
   exports.ClientEnter = function (clientId, channel) {
-    return request ("ClientEnter", {"clientId": clientId, "channelId": channel});
+    return message ("ClientEnter", null, channel, {"clientId": clientId});
   };
 
   exports.ClientExit = function (clientId, channel) {
-    return request ("ClientExit", {"clientId": clientId, "channelId": channel});
+    return message ("ClientExit", null, channel, {"clientId": clientId});
   };
   
   // Message...
 
   exports.Message = function (to, from, mesg) {
-    return request("Message", {"to": to, "from": from, "message": mesg});
+    return message("Message", to, from, mesg);
   };
 
   // Internal API...
 
   exports.RegisterStation = function (key) {
-    return request("RegisterStation", {"key": key});
+    return message("RegisterStation", null, null, {"key": key});
   };
 
   exports.GetApplicationData = function (appId) {
-    return request("GetApplicationData", {"appId": appId});
+    return message("GetApplicationData", appId, null);
   };
 
-  exports.GetApplicationDataResponse = function (keys, channels) {
-    retunr response({"keys": keys, "channels": channels});
+  exports.ApplicationData = function (keys, channels) {
+    return message("ApplicationData", null, null, {"keys": keys, "channels": channels});
   };
 
 })(exports)

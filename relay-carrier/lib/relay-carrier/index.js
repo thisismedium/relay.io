@@ -15,7 +15,7 @@ function ConnectionPool () {
   this.addConnection = function (connection) {
     connections.push(connection);
     connection.on("error", function (e) {
-      console.log(e);
+      console.log("Error:" + e);
     });
     function a1 (e) {
       self.removeConnection(connection);
@@ -44,7 +44,7 @@ exports.app = function () {
 
   var pool = new ConnectionPool();
   pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  //pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");
@@ -85,7 +85,6 @@ exports.app = function () {
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
 
-  console.log(process.argv)
   var port = process.argv[3] ? process.argv[3] : "8000";
   var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
 

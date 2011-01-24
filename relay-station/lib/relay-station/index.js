@@ -17,7 +17,7 @@ var RelayStation = function () {
 
   function getApplication (name, callback) {
     if (!apps[name]) {
-      hubConnection.write(new api.GetApplicationData(name), function (mesg) {
+      hubConnection.send(api.GetApplicationData(name), function (mesg) {
         console.log(mesg);
         if (mesg.getType() != "Error") {
           var newApp = new Application(mesg.getBody().getAppId(), mesg.getBody().getKeys());
@@ -34,7 +34,7 @@ var RelayStation = function () {
   
   // This is the object that all of the request are initially 
   // dispatached to (using the api.runRPC controller). 
-  function RelayStationRPC (stream) {
+  function RelayStationMessageHandler (stream) {
 
     // The runRPC controller does logging with the .log method
     this.log = function (data) {
@@ -42,18 +42,17 @@ var RelayStation = function () {
     };
 
     this.Hello = function (request, resp) {
-      console.log("Got Hello!");
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
-      getApplication(request.getBody().getAppId(), function (err, app) {
+      getApplication(request.to, function (err, app) {
         if (err) {
           // no application found, report the error
-          resp.reply(new api.InvalidApplicationError());
+          resp.reply(api.InvalidApplicationError());
         } else {
           // application found, tell the application to assume this
           // stream (.assumeStream should take the control away from the
           // RelayStation so all messages are passed directly to the application)
-          stream.bindRpcHandler(new app.rpcHandler());
+          stream.bindMessageHandler(new app.messageHandler());
           stream.dispatch(request);
         }
       });
@@ -71,14 +70,15 @@ var RelayStation = function () {
   var server = net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
-      stream.bindRpcHandler(new RelayStationRPC(stream));
+      stream.bindMessageHandler(new RelayStationMessageHandler(stream));
     });
   });
 
   
   this.listen = function (port, host) {
-    hubConnection.write(new api.RegisterStation("test"), function(data) {
-      if (data.getType() == "Error") {
+    console.log("Waiting for a connection to the hub...");
+    hubConnection.send(api.RegisterStation("test"), function(data) {
+      if (data.type == "Error") {
         console.log(" - Could not establish a connection with the hub");
       } else {
         console.log(" + Connection to the hub has been established");

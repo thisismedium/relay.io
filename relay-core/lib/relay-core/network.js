@@ -33,7 +33,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   var self = this;
   var currentMid = 0;
   var callbacks = {};
-  var rpcHandler = null;
+  var messageHandler = null;
 
   function getNextMessageId () {
     currentMid += 1;
@@ -49,17 +49,17 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   this.dispatch = function (mesg) {
     if (mesg.id && callbacks[mesg.id]) {
       callbacks[mesg.id](mesg);
-    } else if (rpcHandler) {
-      if (rpcHandler.log) {
-        rpcHandler.log(mesg);
+    } else if (messageHandler) {
+      if (messageHandler.log) {
+        messageHandler.log(mesg);
       }
-      if (mesg.method && rpcHandler[mesg.method]) {
-        rpcHandler[mesg.method](mesg, {
+      if (mesg.type && messageHandler[mesg.type]) {
+        messageHandler[mesg.type](mesg, {
           "reply": function (replyMessage, callback) {
             if (mesg.id) {
               replyMessage.id = mesg.id;
             } 
-            self.write(replyMessage, callback);
+            self.send(replyMessage, callback);
           }
         });
       }
@@ -81,9 +81,9 @@ var ApplicationSocketLinkChannel = function (socketChan) {
     }
   });
 
-  this.bindRpcHandler = function (handler) {
+  this.bindMessageHandler = function (handler) {
     if (handler.initialize) handler.initialize(this);
-    rpcHandler = handler;
+    messageHandler = handler;
   }
 
   this.getId     = function () { return socketChan.getId() };
@@ -91,7 +91,11 @@ var ApplicationSocketLinkChannel = function (socketChan) {
 
   this.end = this.destroy = function () { return socketChan.end() }
 
-  this.write = this.send = function (json, callback) {
+  this.write = function (data) {
+    throw "Write should not be used, use '.send' instead";
+  }
+
+  this.send = function (json, callback) {
     if (callback) {
       if (!json.id) {
         var mid = getNextMessageId();

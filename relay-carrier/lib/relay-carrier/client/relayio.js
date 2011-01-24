@@ -254,51 +254,35 @@ var relayio = {};
 
   ////////////////////////////////////////////////////////////////////////
   
-  var MessageWrapper = function () {}
-  MessageWrapper.prototype.dump = function () {
-    return { 
-      "type": this.type,
-      "body": this.body 
-    };
-  };
-
-  function $message (fn) {
-    fn.prototype = MessageWrapper.prototype;
-    return fn;
-  };
-
-  var Hello = $message(function(app_id, keys) {
-    this.type = "Hello";
-    this.body = { 
-      "appId": app_id,
-      "keys": keys 
+  function message (type, to, from, body) {
+    var mesg = {
+      "type": type,  
+      "body": body
     }
-  });
+    if (to) mesg["to"] = to;
+    return mesg;
+  };
+  
+  var Hello = function (appId, keys) {
+    return message("Hello", appId, null, {"keys": keys});
+  }
 
-  var GetStatus = $message(function (address) {
-    this.type = "GetStatus";
-    this.body = { "address": address }
-  });
-    
-  var Message = $message(function (to, body) {
-    this.type = "Message";
-    this.dump = function () {
-      return {"type": this.type,
-              "from": "@me",
-              "to"  : to,
-              "body": body }
-    };
-  });
+  var GetStatus = function (channel) {
+    return message ("GetStatus", channel);
+  };
 
-  var Join = $message(function(channel) {
-    this.type = "Join";
-    this.body = {"address": channel};
-  });
+  var Message = function (to, from, mesg) {
+    return message("Message", to, from, mesg);
+  };
 
-  var Leave = $message(function(channel) {
-    this.type = "Leave";
-    this.body = {"address": channel };
-  });
+  var Join = function (address, keys) {
+    return message("Join", address, null, {"keys": keys});
+  };
+
+  var Leave = function (address) {
+    return message ("Leave", address);
+  };
+
 
   ////////////////////////////////////////////////////////////////////////
 
@@ -310,7 +294,7 @@ var relayio = {};
     }
 
     this.getStatus = function (callback) {
-      var mesg = new GetStatus(name);
+      var mesg = GetStatus(name);
       parent.send(mesg, function (json) {
         if (json.type == "Error") {
           callback(json.body);
@@ -325,12 +309,12 @@ var relayio = {};
     };
 
     this.exit = function exit(callback) {
-      var mesg = new Leave(this.getName());
+      var mesg = Leave(this.getName());
       parent.send(mesg, callback);
     };
 
     this.send = function send (mesg, callback) {
-      var rmesg = new Message(name, mesg);
+      var rmesg = Message(name, mesg);
       debug(parent);
       parent.send(rmesg, function(json) {
         if (callback) {
@@ -377,7 +361,7 @@ var relayio = {};
           
         });
 
-        self.send(new Hello(app_id, keys));
+        self.send(Hello(app_id, keys));
       });
       
       messageDispatcher.on("Welcome", function (json) {
@@ -403,11 +387,9 @@ var relayio = {};
     };
 
     this.send = function send (mesg, callback) {
-      //console.log(mesg);
-      var mesg = mesg.dump();
       if (callback) {
         var id = getNextMessageId();
-        mesg.mesgId = id;
+        mesg.id = id;
         mesg_listeners[id] = callback;
       }
       debug(" < DATA OUT: " + JSON.stringify(mesg))
@@ -442,7 +424,7 @@ var relayio = {};
     };
 
     this.join = function join (chan, callback) {
-      var mesg = new Join(chan);
+      var mesg = Join(chan);
       self.send(mesg, function(json) {
         if (json.type != "Error") {
           var chanObj = new RelayChannel(chan, self);

@@ -9,7 +9,7 @@ function Hub () {
 
   var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
 
-  this.RpcHandler = function () {
+  this.MessageHandler = function () {
 
     self = this;
     this.stream = null;
@@ -38,18 +38,19 @@ function Hub () {
   }
 };
 
-function RelayStationRegisterRPC (stream) {
+function RelayStationRegisterMessageHandler (stream) {
 
   hub = new Hub();
 
   this.log = function (data) {
-    console.log(" + Got %s message", data.getType());
+    console.log(" + Got %s message", data.type);
   };
 
   this.RegisterStation = function (mesg, resp) {
-    if (mesg.getKey() == settings.station_key) {
-      stream.bindRpcHandler(new hub.RpcHandler());
-      resp.reply(new api.Success());
+    console.log("Registering a station");
+    if (mesg.body.key == settings.station_key) {
+      stream.bindMessageHandler(new hub.MessageHandler());
+      resp.reply(api.Okay());
     } else {
       resp.reply(api.PermissionDeniedError());
     }
@@ -65,7 +66,8 @@ exports.app = function () {
   var server = net.createServer(function (raw_stream) {
     var appStream = new ApplicationSocketLink(raw_stream);
     appStream.on("channel", function (stream) {
-      stream.bindRpcHandler(new RelayStationRegisterRPC(stream));
+      console.log(stream);
+      stream.bindMessageHandler(new RelayStationRegisterMessageHandler(stream));
     });
   });
   console.log("RelayHub: starting on port 7777");

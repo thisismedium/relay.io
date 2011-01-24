@@ -136,7 +136,7 @@ function Application (appId, keys) {
 
   ////////////////////////////////////////////////////////////////////////
 
-  this.rpcHandler = function rpcHandler () {
+  this.messageHandler = function messageHandler () {
 
     var client = null;
 

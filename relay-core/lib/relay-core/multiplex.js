@@ -190,7 +190,7 @@ function MultiplexedSocket (stream) {
   });
   stream.on("error",function (e){ 
     emitOnAllChannels ("error",e);
-    self.emit("error");
+    self.emit("error", e);
   });
 
   stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });
@@ -229,6 +229,7 @@ function MultiplexedSocket (stream) {
     this.writeRaw = function (str) { self._write([this], str); }
 
     this._write = function (chans, json) {
+      debug("Writing data: " + json);
 
       var bufA = new Buffer(Buffer.byteLength(json) + mode_header_width + header_size + (chan_id_width * chans.length),'binary');
 
