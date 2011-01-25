@@ -77,7 +77,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
       }
     }
     if (json) {
-      self.dispatch(json);
+      self.dispatch(api.inspectMessage(json));
     }
   });
 
@@ -105,13 +105,18 @@ var ApplicationSocketLinkChannel = function (socketChan) {
       callbacks[mid] = callback;
       json.id = mid;
     }
-    socketChan.write(JSON.stringify(json));
+    if (typeof json['dump'] == "function") json = json.dump();
+    
+    var str = JSON.stringify(json);
+    if (!str) throw "Object could not be serialized";
+    else socketChan.write(JSON.stringify(json));
   };
 
   this.writeRaw = function (data) { socketChan.writeRaw(data) };
 
   this.multiWrite = function (chans, obj) {
-    socketChan.multiWrite(chans, JSON.stringify(obj.dump()));
+    if (typeof(obj.dump) == "function") obj = obj.dump();
+    socketChan.multiWrite(chans, JSON.stringify(obj));
   };
 };
 ApplicationSocketLinkChannel.inheritsFrom(events.EventEmitter);

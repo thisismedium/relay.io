@@ -300,8 +300,8 @@ var relayio = {};
           callback(json.body);
         } else {
           var clients = [];
-          for (var i = 0; i < json.body.clientsList.length; i++) {
-            clients.push(new RelayChannel(json.body.clientsList[i], parent));
+          for (var i = 0; i < json.body.clients.length; i++) {
+            clients.push(new RelayChannel(json.body.clients[i], parent));
           }
           callback(undefined, clients);
         }
@@ -314,7 +314,7 @@ var relayio = {};
     };
 
     this.send = function send (mesg, callback) {
-      var rmesg = Message(name, mesg);
+      var rmesg = Message(name,"me", mesg);
       debug(parent);
       parent.send(rmesg, function(json) {
         if (callback) {
@@ -351,9 +351,9 @@ var relayio = {};
         connection.on("data", function (data) {
           debug(" > DATA IN: " + data);
           var json = JSON.parse(data);
-          if (json.mesgId && mesg_listeners[json.mesgId]) {
-            mesg_listeners[json.mesgId](json);
-            delete mesg_listeners[json.mesgId];
+          if (json.id && mesg_listeners[json.id]) {
+            mesg_listeners[json.id](json);
+            delete mesg_listeners[json.id];
           }
  
           self.emit("data", json);
@@ -365,9 +365,8 @@ var relayio = {};
       });
       
       messageDispatcher.on("Welcome", function (json) {
-
         connected = true;
-        user_id = json.body.clientId;
+        user_id = json.to;
 
         var private_chan = new RelayChannel(user_id, self);
         var global_chan  = new RelayChannel("#global", self);

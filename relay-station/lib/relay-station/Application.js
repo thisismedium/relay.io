@@ -4,7 +4,7 @@ var Key                   = require("./Key").Key;
 
 // Application ////////////////////////////////////////////////////////////
 
-function Application (appId, keys) {
+function Application (applicationData) {
 
   // Route (a.k.a Channel) ///////////////////////
 
@@ -43,7 +43,7 @@ function Application (appId, keys) {
       console.log(out.length);
     };
 
-    this.send = this.write = function send (mesg) {
+    this.send = function send (mesg) {
       var streams = subscribers.map(function (s) { return s.getStream() });
       groupChannelsBySocket(streams).forEach(function(sub) {
         sub[0].multiWrite(sub, mesg);
@@ -62,7 +62,6 @@ function Application (appId, keys) {
   function Client (client_id, stream, perms) {
 
     this.canWrite = function canWrite () {
-      console.log("WRITE: " + api.PERM_WRITE & perms);
       return api.PERM_WRITE & perms
     };
 
@@ -93,7 +92,7 @@ function Application (appId, keys) {
     };
 
     this.send = this.write = function write(data) {
-      return stream.write(data);
+      return stream.send(data);
     };
 
   }
@@ -102,10 +101,10 @@ function Application (appId, keys) {
 
   var self = this;
 
-  if (keys == undefined) keys = [];
+  var appId = applicationData.getAddress();
 
   this.getAppId = function () { 
-    return appId
+    return applicationData.getAddress();
   };
 
   ////////////////////////////////////////////////////////////////////////
@@ -154,14 +153,13 @@ function Application (appId, keys) {
     // Client said "Hello", they are brand new to the world...
     this.Hello = function (request, resp) {
 
-      console.log("Got hello");
-      
       // If the request includes keys setup new permissions for the user.
-      if (request.getKeys()) {
-        request.getKeys().forEach(function(key){
-          var real_key = getKeyByHash(key);
+      if (request.body.keys) {
+        request.body.keys.forEach(function(key){
+          var real_key = applicationData.getRoleByKey(key);
+          console.log("SETTING UP KEY: " + real_key.name);
           if (real_key) {
-            client.setPerms(real_key.getPerms());
+            client.setPerms(real_key.mask);
           }
         });
       }
@@ -173,7 +171,7 @@ function Application (appId, keys) {
       joinRoute("#global", client);
 
       // Inform the client about their client_id.
-      resp.reply(new api.Welcome(client.getClientId()));
+      resp.reply(api.Welcome(client.getClientId()));
 
       // Inform the global channel of the clients activation.
       sendMessageToRoute("#global", new api.ClientEnter(client.getClientId(), "#global"));
@@ -183,15 +181,15 @@ function Application (appId, keys) {
     // Client said "Join", the client wants to join a channel to listen for updates
 
     this.Join = function (request, resp) {
-      var addr = request.getBody().getAddress();
-      if (client.canRead() && joinRoute(addr, client)) {
-        if (!addr.match("^#[a-zA-Z1-9]*$")) {
-          resp.reply(new api.PermissionDeniedError());
+      var addr = request.to;
+      if (client.canRead() && addr.match("^#[a-zA-Z1-9]*$")) {
+        if (!joinRoute(addr, client)) {
+          resp.reply(api.error(500, "Internal Error"));
         } else {
           // If the client is able to join the channel (aka route) then inform everyone on that channel that they have entered.
           sendMessageToRoute(addr, new api.ClientEnter(client.getClientId(), addr));            
           // Inform the client of a successful "Join".
-          resp.reply(new api.Success());
+          resp.reply(api.Okay());
         }
       } else {
         resp.reply(new api.PermissionDeniedError());
@@ -199,21 +197,21 @@ function Application (appId, keys) {
     }
 
     this.GetStatus = function (request, resp) {
-      var route = request.getBody().getAddress();
+      var route = request.to;
       if (routes[route]) {
-        resp.reply(new api.ResourceStatus(route, routes[route].listSubscribers()));
+        resp.reply(api.Status(route, routes[route].listSubscribers()));
       } else {
-        resp.reply(new api.PermissionDeniedError());
+        resp.reply(api.PermissionDeniedError());
       }
     }
 
     // Client said "Leave" and wanted to leave a room.
 
     this.Leave = function (request, resp) {
-      var addr = request.getBody().getAddress();
+      var addr = request.to;
       removeSubscriber(addr, client);
-      sendMessageToRoute(addr, new api.ClientExit(client.getClientId(), addr));
-      resp.reply(new api.Success());
+      sendMessageToRoute(addr, api.ClientExit(client.getClientId(), addr));
+      resp.reply(api.Okay());
     }
 
     // The client as sent us a "Message", we need to route it to the right users.
@@ -222,17 +220,17 @@ function Application (appId, keys) {
       if (client.canWrite()) {
         // The client could be pulling a fast one so we simply discard the "from" field from the messages and set it to whatever
         // user we tagged in incoming stream with.
-        request.setFrom(client.getClientId())
+        request.from = client.getClientId();
           
         process.nextTick (function () {
           // Send the message to the proper channels.
-          sendMessageToRoute(request.getTo(), request);
+          sendMessageToRoute(request.to, request);
           // Inform the client that their message has been delivered.
-          resp.reply(new api.Success());
+          resp.reply(api.Okay());
           
         });
       } else {
-        client.send(new api.PermissionDeniedError());
+        client.send(api.PermissionDeniedError());
       }
     }
 

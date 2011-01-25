@@ -28,17 +28,22 @@ var ApplicationDatabase = function ApplicationDatabase (path) {
         if (err) {
           callback(err, null);
         } else {
-          callback(err, JSON.parse(data));
+          callback(err, new api.ApplicationBuilder(JSON.parse(data)));
         }
         db.close(function(){})
       });
     });
   };
 
-  this.putApplicationData = function putApplicationData (appId, data, callback) {
+  this.putApplicationData = function putApplicationData (data, callback) {
+    if (!(data instanceof api.ApplicationBuilder)) throw "data provided is not ApplicationBuilder data!";
     withDB(function (err, db) {
       if (err) throw err;
-      db.put(appId, JSON.stringify(data.dump()), callback);
+      db.put(data.getAddress(), JSON.stringify(data.dump()), function (err) {
+        db.close(function(){
+          if (callback) callback(err);
+        });
+      });
     });
   };
 

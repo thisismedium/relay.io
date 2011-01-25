@@ -19,18 +19,16 @@ function Hub () {
     }
 
     this.log = function (data) {
-      console.log(" + Got %s message", data.getType());
+      console.log(" + Got %s message", data.type);
     };
 
 
     this.GetApplicationData = function (mesg, resp) {
-      appDB.getApplicationData(mesg.getAppId(), function (err, data) {
+      appDB.getApplicationData(mesg.to, function (err, data) {
         if (err || !data) {
           resp.reply(api.InvalidApplicationError());
         } else {
-          var mesg = new api.ApplicationData();
-          mesg.load(data);
-          console.log(mesg);
+          var mesg = api.ApplicationData(data);
           resp.reply(mesg);
         }
       });
@@ -40,7 +38,7 @@ function Hub () {
 
 function RelayStationRegisterMessageHandler (stream) {
 
-  hub = new Hub();
+  var hub = new Hub();
 
   this.log = function (data) {
     console.log(" + Got %s message", data.type);
@@ -79,4 +77,15 @@ process.on('uncaughtException', function (err) {
   console.log('Caught exception: ');
   console.log(err);
 });
+
+////////////////////////////////////////////////////////////////////////
+// Test Data
+////////////////////////////////////////////////////////////////////////
+var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
+var test  = new api.ApplicationBuilder();
+test.setName("Test App");
+test.setAddress("test");
+test.updateRole("read_key", "read_key", api.PERM_READ);
+test.updateRole("write_key", "write_key", api.PERM_WRITE);
+appDB.putApplicationData(test, function() {});
 

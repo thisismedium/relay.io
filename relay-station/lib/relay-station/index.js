@@ -19,9 +19,10 @@ var RelayStation = function () {
     if (!apps[name]) {
       hubConnection.send(api.GetApplicationData(name), function (mesg) {
         console.log(mesg);
-        if (mesg.getType() != "Error") {
-          var newApp = new Application(mesg.getBody().getAppId(), mesg.getBody().getKeys());
-          apps[mesg.getBody().getAppId()] = newApp;
+        if (mesg.type != "Error") {
+          var appData = new api.ApplicationBuilder(mesg.body);
+          var newApp = new Application(appData);
+          apps[name] = newApp;
           callback(null, newApp);
         } else {
           callback(mesg, null);
@@ -32,13 +33,11 @@ var RelayStation = function () {
     }
   }
   
-  // This is the object that all of the request are initially 
-  // dispatached to (using the api.runRPC controller). 
+  // This is the object that all of the request are initially handled by
   function RelayStationMessageHandler (stream) {
 
-    // The runRPC controller does logging with the .log method
     this.log = function (data) {
-      console.log(data.getType());
+      console.log(data.type);
     };
 
     this.Hello = function (request, resp) {
@@ -58,8 +57,6 @@ var RelayStation = function () {
       });
     };
 
-    // the runRPC framework will all InvalidRequest when a message can not
-    // be handled but the rpc object...
     this.InvalidRequest = function (request) {
       console.log("Got a non Hello request");
       stream.end();

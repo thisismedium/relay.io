@@ -6,16 +6,16 @@ var it = require("iterators");
   // Client type permission
 
   // Can read (on by default)
-  exports.PERM_READ   = 1 << 0; 
+  exports.PERM_READ        = 1 << 0; 
 
   // Can write (send messages)
-  exports.PERM_WRITE  = 1 << 1;
+  exports.PERM_WRITE       = 1 << 1;
 
   // Can create channels and such
   exports.PERM_CREATE_CHAN = 1 << 2;
 
   // Can delete channels and such
-  exports.PERM_DELETE_CHAN = 1 << 3;
+  exports.PERM_MODIFY_CHAN = 1 << 3;
 
 
   exports.PERM_ADMIN = exports.PERM_READ 
@@ -40,22 +40,22 @@ var it = require("iterators");
   };
   exports.message = message;
 
-  function error (code, message) {
-    return message("Error", null, null, {"code": code, "message": message});
-  }
+  function error (code, mesg) {
+    return message("Error", null, null, {"code": code, "message": mesg});
+  };
   exports.error = error;
 
   // Errors...
 
-  exports.invalidApplicationError = function () { 
+  exports.InvalidApplicationError = function () { 
     return error(ST_INVALID_APP, "Invalid Application");
   };
 
-  exports.permissionDeniedError = function () {
+  exports.PermissionDeniedError = function () {
     return error(ST_PERMISSION_DENIED, "Permission Denied");
   };
 
-  exports.invalidRequestError = function () {
+  exports.InvalidRequestError = function () {
     return error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
@@ -93,8 +93,7 @@ var it = require("iterators");
   };
 
   exports.Status = function (channel, clients) {
-    var mesg = message("Status", null, channel, {"clientList": clients});
-    return message;
+    return message("Status", null, channel, {"clients": clients});
   };
 
   // Events...
@@ -123,8 +122,101 @@ var it = require("iterators");
     return message("GetApplicationData", appId, null);
   };
 
-  exports.ApplicationData = function (keys, channels) {
-    return message("ApplicationData", null, null, {"keys": keys, "channels": channels});
+  exports.ApplicationData = function (adata) {
+    if (!(adata instanceof ApplicationBuilder)) throw "Provided object is not ApplicationBuider Data";
+    else return message("ApplicationData", null, null, adata.dump());
+  };
+
+  function ApplicationBuilder (data) {
+
+    if (!data)          var data = {}
+    if (!data.roles)    data.roles = [];
+    if (!data.channels) data.channels = [];
+    if (!data.users)    data.users = [];
+
+    function inspect (data) {
+      if (!data.name) throw "Application does not have a name";
+      return data;
+    };
+    
+    this.dump = function () {
+      return inspect(data);
+    };
+    
+    this.setName    = function (n) { data.name = n };
+    this.setAddress = function (a) { data.address = a };
+
+    this.getAddress = function ()  { 
+      if (!data.address) {
+        throw "no address";
+      } else {
+        return data.address 
+      }
+    }; 
+
+    this.getRoleByKey = function (key) {
+      for (var i = 0; i < data.roles.length; i++) {
+        if (data.roles[i].key === key) return data.roles[i];
+      }
+      return null;
+    };
+
+    this.getChannelByAddress = function (address) {
+      for (var i = 0; i < data.channels.length; i++) {
+        if (data.channels[i].address = address) return data.channels[i];
+      }
+      return null;
+    };
+    
+    this.deleteRoleByKey = function (key) {
+      data.roles = it.filter(function(x) { return x.key === key }, data.roles);
+    };
+    
+    this.deleteChannelByAddress = function (address) {
+      data.channels = it.filter(function(x) { return x.address === address }, data.channels);
+    };
+
+    this.updateRole = function (name, key, mask) {
+      if (!name || !key || !mask) { 
+        throw "You must provide a name, key and mask";
+      } else {
+        this.deleteRoleByKey(key);
+        console.log(data.roles);
+        data.roles.push({
+          "name" : name,
+          "key"  : key,
+          "mask" : mask
+        });
+      };
+    }
+    this.updateChannel = function (address, keys, mask) {
+      if (!address || !mask || !keys) {
+        throw "You must provide a name, keys and mask";
+      } else {
+        this.deleteChannelByAddress(address);
+        data.channels.push({
+            "address" : address,
+            "keys"    : keys,
+            "mask"    : mask
+        });
+      }
+    };
+    this.addUser = function(name, password, keys) {
+      throw "not implemented";
+    };  
+  }
+  exports.ApplicationBuilder = ApplicationBuilder;
+  
+  ////////////////////////////////////////////////////////////////////////
+  // Used to inspect a message before it is passed
+  // along to processes, this may be used 
+  // to modify the message objects in some way 
+  // such as adding getter/setters.
+  ////////////////////////////////////////////////////////////////////////
+
+  exports.inspectMessage = function (mesg) {
+    console.log("Inspecting message");
+    return mesg;
   };
 
 })(exports)
