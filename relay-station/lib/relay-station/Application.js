@@ -192,7 +192,7 @@ function Application (applicationData) {
           resp.reply(api.Okay());
         }
       } else {
-        resp.reply(new api.PermissionDeniedError());
+        resp.reply(new api.newPermissionDeniedError());
       }
     }
 
@@ -201,7 +201,7 @@ function Application (applicationData) {
       if (routes[route]) {
         resp.reply(api.Status(route, routes[route].listSubscribers()));
       } else {
-        resp.reply(api.PermissionDeniedError());
+        resp.reply(api.newPermissionDeniedError());
       }
     }
 
@@ -230,12 +230,12 @@ function Application (applicationData) {
           
         });
       } else {
-        client.send(api.PermissionDeniedError());
+        client.send(api.newPermissionDeniedError());
       }
     }
 
     this.InvalidRequest = function (request, resp) {
-      resp.reply(new api.InvalidRequestError());
+      resp.reply(new api.newInvalidRequestError());
     };
 
   };

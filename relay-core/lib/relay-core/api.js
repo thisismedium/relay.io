@@ -47,15 +47,15 @@ var it = require("iterators");
 
   // Errors...
 
-  exports.InvalidApplicationError = function () { 
+  exports.newInvalidApplicationError = function () { 
     return error(ST_INVALID_APP, "Invalid Application");
   };
 
-  exports.PermissionDeniedError = function () {
+  exports.newPermissionDeniedError = function () {
     return error(ST_PERMISSION_DENIED, "Permission Denied");
   };
 
-  exports.InvalidRequestError = function () {
+  exports.newInvalidRequestError = function () {
     return error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
