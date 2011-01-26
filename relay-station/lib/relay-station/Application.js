@@ -69,6 +69,7 @@ function Route (name, mask, acl) {
 
   this.__defineSetter__("mask", function (m) { mask = m });
   this.__defineSetter__("acl",  function (a) { acl = acl });
+  this.__defineGetter__("address", function () { return name });
 
   this.mergeClientMask = function (client) {
     var cmask = mask;
@@ -257,7 +258,7 @@ function Application (data) {
       var route = getRouteByAddress(request.to);
       if (route) {
         route.removeSubscriber(client);
-        route.send(new api.ClientExit(client.getClientId(), route.getAddress()));
+        route.send(new api.ClientExit(client.getClientId(), route.address));
         resp.reply(new api.Okay());
       } else {
         resp.reply(new api.PermissionDeniedError());
