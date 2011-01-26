@@ -88,5 +88,9 @@ test.setName("Test App");
 test.setAddress("test");
 test.updateRole("read_key", "read_key", api.PERM_READ);
 test.updateRole("write_key", "write_key", api.PERM_WRITE);
+test.updateRole("magic_key", "magic_key", api.PERM_WRITE | api.PERM_READ);
+var acl = test.createACL();
+acl.addRole("magic_key", api.PERM_READ);
+test.updateChannel("#test", acl);
 appDB.putApplicationData(test, function() {});
 

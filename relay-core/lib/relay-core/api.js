@@ -165,10 +165,36 @@ var it = require("iterators");
 
   function Application (data) {
 
-    if (!data)          var data      = {}
+    var self = this;
+    if (!data)          var data      = {};
     if (!data.roles)    data.roles    = [];
     if (!data.channels) data.channels = [];
     if (!data.users)    data.users    = [];
+
+    function ACL () {
+      var self_self = this;
+      var roles = [];
+      this.addRole = function (key, mask) {
+        if (!key || !mask) throw new Error("You must provide a key and mask");
+        if (self.getRoleByKey(key)) {
+          roles.push({"key": key, "mask": mask});
+        } else {
+          throw new Error("Invalid key provided.");
+        }
+      };
+      this.getRoleByKey = function (key) {
+        return roles[key];
+      };
+      this.dump = function () {
+        return roles;
+      };
+      this.load = function (roles) {
+        it.each(roles, function (r) {
+          self_self.addRole(r.key, r.mask);
+        });
+        return this;
+      };
+    };
 
     function inspect (data) {
       if (!data)         throw new Error ("Application Data not provided");
@@ -178,13 +204,29 @@ var it = require("iterators");
     };
 
     this.load = function (json) {
-      data = json;
+      for (var key in json) {
+        if (json.hasOwnProperty(key)) {
+          if (key == "channels") {
+            it.each(json[key], function (chan) {
+              var acl = new ACL();
+              acl.load(chan.acl);
+              self.updateChannel(chan.address, acl, chan.mask);
+            });
+          } else {
+            data[key] = json[key];
+          }
+        }
+      }
     }
     
     this.dump = function () {
       return inspect(data);
     };
-    
+
+    this.createACL = function () {
+      return new ACL();
+    };
+
     this.setName    = function (n) { data.name = n };
     this.setAddress = function (a) { data.address = a };
 
@@ -213,7 +255,12 @@ var it = require("iterators");
 
     this.getChannelByAddress = function (address) {
       for (var i = 0; i < data.channels.length; i++) {
-        if (data.channels[i].address = address) return data.channels[i];
+        if (data.channels[i].address = address) 
+          return {
+            "address" : data.channels[i].address,
+            "acl"     : (new ACL()).load(data.channels[i].acl),
+            "mask"    : data.channels[i].mask
+          }
       }
       return null;
     };
@@ -238,18 +285,20 @@ var it = require("iterators");
           "mask" : mask
         });
       };
-    }
-    this.updateChannel = function (address, keys, mask) {
-      if (!address || !mask || !keys) {
-        throw "You must provide a name, keys and mask";
-      } else {
-        this.deleteChannelByAddress(address);
-        data.channels.push({
-            "address" : address,
-            "keys"    : keys,
-            "mask"    : mask
-        });
-      }
+    };
+
+    this.updateChannel = function (address, acl, mask) {
+      if (!address || !acl) 
+        throw new Error("You must provide an address and ACL");
+      if (!(acl instanceof ACL))
+        throw new Error("Invalid ACL");
+      this.deleteChannelByAddress(address);
+      data.channels.push({
+        "address" : address,
+        "acl"     : acl.dump(),
+        "mask"    : mask ? mask : 0
+      });
+      
     };
     this.addUser = function(name, password, keys) {
       throw "not implemented";
