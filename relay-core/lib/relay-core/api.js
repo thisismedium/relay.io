@@ -45,6 +45,7 @@ var it = require("iterators");
       "id"   : id
     }  
   }
+
   Message.prototype.dump = function () {
     for (var key in this.message) {
       if (this.message.hasOwnProperty(key)) {
@@ -53,6 +54,7 @@ var it = require("iterators");
     }
     return this.message;
   }
+
   Message.prototype.load = function (obj) {
     this.message = this.build(obj.type, obj.to, obj.from, obj.body, obj.id);
   };
@@ -67,7 +69,7 @@ var it = require("iterators");
 
   ////////////////////////////////////////////////////////////////////////
 
-  exports.isMessageInstance = function (x) { return (x instanceof Message) }; 
+  exports.isMessageInstance = function (x) { return (x instanceof Message) } 
 
   function message (type, to, from, body) {
     return new Message(type, to, from, body);
@@ -163,15 +165,21 @@ var it = require("iterators");
 
   function ApplicationBuilder (data) {
 
-    if (!data)          var data = {}
-    if (!data.roles)    data.roles = [];
+    if (!data)          var data      = {}
+    if (!data.roles)    data.roles    = [];
     if (!data.channels) data.channels = [];
-    if (!data.users)    data.users = [];
+    if (!data.users)    data.users    = [];
 
     function inspect (data) {
-      if (!data.name) throw "Application does not have a name";
+      if (!data)         throw new Error ("Application Data not provided");
+      if (!data.name)    throw new Error ("Application does not have a name");
+      if (!data.address) throw new Error ("Application does not have an address");
       return data;
     };
+
+    this.load = function (json) {
+      data = json;
+    }
     
     this.dump = function () {
       return inspect(data);
@@ -182,11 +190,19 @@ var it = require("iterators");
 
     this.getAddress = function ()  { 
       if (!data.address) {
-        throw "no address";
+        throw new Error("no address");
       } else {
         return data.address 
       }
     }; 
+    
+    this.getName = function () {
+      if (!data.name) {
+        throw new Error("no name");
+      } else {
+        return data.name
+      }
+    }
 
     this.getRoleByKey = function (key) {
       for (var i = 0; i < data.roles.length; i++) {

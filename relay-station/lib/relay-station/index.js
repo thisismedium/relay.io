@@ -20,8 +20,7 @@ var RelayStation = function () {
       hubConnection.send(api.GetApplicationData(name), function (mesg) {
         console.log(mesg);
         if (mesg.type != "Error") {
-          var appData = new api.ApplicationBuilder(mesg.body);
-          var newApp = new Application(appData);
+          var newApp = new Application(mesg.body);
           apps[name] = newApp;
           callback(null, newApp);
         } else {
@@ -34,7 +33,7 @@ var RelayStation = function () {
   }
   
   // This is the object that all of the request are initially handled by
-  function RelayStationMessageHandler (stream) {
+  function MessageHandler (stream) {
 
     this.log = function (data) {
       console.log(data.type);
@@ -51,7 +50,7 @@ var RelayStation = function () {
           // application found, tell the application to assume this
           // stream (.assumeStream should take the control away from the
           // RelayStation so all messages are passed directly to the application)
-          stream.bindMessageHandler(new app.messageHandler());
+          stream.bindMessageHandler(new app.MessageHandler());
           stream.dispatch(request);
         }
       });
@@ -67,7 +66,7 @@ var RelayStation = function () {
   var server = net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
-      stream.bindMessageHandler(new RelayStationMessageHandler(stream));
+      stream.bindMessageHandler(new MessageHandler(stream));
     });
   });
 
