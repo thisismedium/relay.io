@@ -46,7 +46,7 @@ var RelayStation = function () {
       getApplication(request.to, function (err, app) {
         if (err) {
           // no application found, report the error
-          resp.reply(api.newInvalidApplicationError());
+          resp.reply(api.InvalidApplicationError());
         } else {
           // application found, tell the application to assume this
           // stream (.assumeStream should take the control away from the

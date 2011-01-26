@@ -26,7 +26,7 @@ function Hub () {
     this.GetApplicationData = function (mesg, resp) {
       appDB.getApplicationData(mesg.to, function (err, data) {
         if (err || !data) {
-          resp.reply(api.newInvalidApplicationError());
+          resp.reply(api.InvalidApplicationError());
         } else {
           var mesg = api.ApplicationData(data);
           resp.reply(mesg);
@@ -50,12 +50,12 @@ function RelayStationRegisterMessageHandler (stream) {
       stream.bindMessageHandler(new hub.MessageHandler());
       resp.reply(api.Okay());
     } else {
-      resp.reply(api.newPermissionDeniedError());
+      resp.reply(api.PermissionDeniedError());
     }
   }
 
   this.InvalidRequest = function (mesg, resp) {
-    resp.reply(api.newInvalidRequestError());
+    resp.reply(api.InvalidRequestError());
   };
 
 };
