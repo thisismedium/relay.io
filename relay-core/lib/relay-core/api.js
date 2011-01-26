@@ -159,11 +159,11 @@ var it = require("iterators");
   };
 
   exports.ApplicationData = function (adata) {
-    if (!(adata instanceof ApplicationBuilder)) throw "Provided object is not ApplicationBuider Data";
+    if (!(adata instanceof Application)) throw "Provided object is not Application Data";
     else return message("ApplicationData", null, null, adata.dump());
   };
 
-  function ApplicationBuilder (data) {
+  function Application (data) {
 
     if (!data)          var data      = {}
     if (!data.roles)    data.roles    = [];
@@ -255,7 +255,7 @@ var it = require("iterators");
       throw "not implemented";
     };  
   }
-  exports.ApplicationBuilder = ApplicationBuilder;
+  exports.Application = Application;
   
   ////////////////////////////////////////////////////////////////////////
   // Used to inspect a message before it is passed

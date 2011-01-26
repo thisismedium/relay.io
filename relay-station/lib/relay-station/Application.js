@@ -235,6 +235,6 @@ function Application (data) {
   };
 
 }
-Application.prototype = new api.ApplicationBuilder()
+Application.prototype = new api.Application()
 exports.Application = Application;
 

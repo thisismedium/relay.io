@@ -28,7 +28,7 @@ var ApplicationDatabase = function ApplicationDatabase (path) {
         if (err) {
           callback(err, null);
         } else {
-          callback(err, new api.ApplicationBuilder(JSON.parse(data)));
+          callback(err, new api.Application(JSON.parse(data)));
         }
         db.close(function(){})
       });
@@ -36,7 +36,7 @@ var ApplicationDatabase = function ApplicationDatabase (path) {
   };
 
   this.putApplicationData = function putApplicationData (data, callback) {
-    if (!(data instanceof api.ApplicationBuilder)) throw "data provided is not ApplicationBuilder data!";
+    if (!(data instanceof api.Application)) throw "data provided is not Application data!";
     withDB(function (err, db) {
       if (err) throw err;
       db.put(data.getAddress(), JSON.stringify(data.dump()), function (err) {

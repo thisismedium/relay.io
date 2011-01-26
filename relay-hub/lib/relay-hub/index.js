@@ -83,7 +83,7 @@ process.on('uncaughtException', function (err) {
 // Test Data
 ////////////////////////////////////////////////////////////////////////
 var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
-var test  = new api.ApplicationBuilder();
+var test  = new api.Application();
 test.setName("Test App");
 test.setAddress("test");
 test.updateRole("read_key", "read_key", api.PERM_READ);
