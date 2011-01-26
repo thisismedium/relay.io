@@ -41,6 +41,7 @@ function RelayStationRegisterMessageHandler (stream) {
   var hub = new Hub();
 
   this.log = function (data) {
+    console.log(data);
     console.log(" + Got %s message", data.type);
   };
 

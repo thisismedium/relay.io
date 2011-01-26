@@ -30,13 +30,47 @@ var it = require("iterators");
   var ST_PERMISSION_DENIED = 502; // Permission Denied
   var ST_INVALID_REQUEST   = 503; // Invalid Request
 
-  function message (type, to, from, body) {
-    var mesg = {
-      "type": type,  
-      "body": body
+  // Message /////////////////
+
+  function Message (type, to, from, body, id){
+    this.message = this.build.apply(this, arguments);
+  };
+
+  Message.prototype.build = function (type, to, from, body, id) {
+    return { 
+      "type" : type,
+      "to"   : to,
+      "from" : from,
+      "body" : body,
+      "id"   : id
+    }  
+  }
+  Message.prototype.dump = function () {
+    for (var key in this.message) {
+      if (this.message.hasOwnProperty(key)) {
+        if(this.message[key] == null) delete this.message[key];
+      }
     }
-    if (to) mesg["to"] = to;
-    return mesg;
+    return this.message;
+  }
+  Message.prototype.load = function (obj) {
+    this.message = this.build(obj.type, obj.to, obj.from, obj.body, obj.id);
+  };
+  Message.prototype.__defineGetter__("type", function () { return this.message.type });
+  Message.prototype.__defineGetter__("to", function () { return this.message.to });
+  Message.prototype.__defineGetter__("from", function () { return this.message.from });
+  Message.prototype.__defineSetter__("from", function (address) { this.message.from = address });
+  Message.prototype.__defineGetter__("body", function () { return this.message.body });
+
+  Message.prototype.__defineGetter__("id", function () { return this.message.id });
+  Message.prototype.__defineSetter__("id", function (i) { this.message.id = i; });
+
+  ////////////////////////////////////////////////////////////////////////
+
+  exports.isMessageInstance = function (x) { return (x instanceof Message) }; 
+
+  function message (type, to, from, body) {
+    return new Message(type, to, from, body);
   };
   exports.message = message;
 
@@ -214,8 +248,10 @@ var it = require("iterators");
   // such as adding getter/setters.
   ////////////////////////////////////////////////////////////////////////
 
-  exports.inspectMessage = function (mesg) {
+  exports.inspectMessage = function (json) {
     console.log("Inspecting message");
+    var mesg = new Message();
+    mesg.load(json);
     return mesg;
   };
 
