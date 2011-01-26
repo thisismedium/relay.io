@@ -36,7 +36,7 @@ function Hub () {
   }
 };
 
-function RelayStationRegisterMessageHandler (stream) {
+function MessageHandler (stream) {
 
   var hub = new Hub();
 
@@ -66,7 +66,7 @@ exports.app = function () {
     var appStream = new ApplicationSocketLink(raw_stream);
     appStream.on("channel", function (stream) {
       console.log(stream);
-      stream.bindMessageHandler(new RelayStationRegisterMessageHandler(stream));
+      stream.bindMessageHandler(new MessageHandler(stream));
     });
   });
   console.log("RelayHub: starting on port 7777");
@@ -87,10 +87,10 @@ var test  = new api.Application();
 test.setName("Test App");
 test.setAddress("test");
 test.updateRole("read_key", "read_key", api.PERM_READ);
-test.updateRole("write_key", "write_key", api.PERM_WRITE);
+test.updateRole("write_key", "write_key", api.PERM_WRITE | api.PERM_CREATE_CHAN);
 test.updateRole("magic_key", "magic_key", api.PERM_WRITE | api.PERM_READ);
 var acl = test.createACL();
 acl.addRole("magic_key", api.PERM_READ);
-test.updateChannel("#test", acl);
+test.updateChannel("#test", acl, 0);
 appDB.putApplicationData(test, function() {});
 

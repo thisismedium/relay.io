@@ -1,7 +1,7 @@
 var api                   = require("relay-core/api");
 var groupChannelsBySocket = require("relay-core/multiplex").groupChannelsBySocket;
 var Key                   = require("./Key").Key;
-
+var it                    = require("iterators");
 // Client ///////////////////////////////////
   
 /* 
@@ -9,7 +9,18 @@ var Key                   = require("./Key").Key;
    session it is given a client-id...
 */
   
-function Client (client_id, stream, perms) {
+function Client (client_id, stream) {
+
+  var perms = 0;
+  var roles = {};
+
+  this.addRole = function (role) {
+    roles[role.key] = role;
+    perms = role.mask | perms;
+  };
+
+  this.__defineGetter__("roles", function () { return roles });
+  this.__defineGetter__("mask", function () { return perms });
 
   this.canWrite = function canWrite () {
     return api.PERM_WRITE & perms
@@ -19,19 +30,15 @@ function Client (client_id, stream, perms) {
     return api.PERM_READ & perms
   };
 
-  this.resetPerms = function resetPerms () {
-    perms = 0;
-    return this;
-  };
-
-  this.setPerms = function setPerms (p) {
-    perms = p | perms;
-    return this;
+  this.canCreate = function () {
+    return api.PERM_CREATE_CHAN & perms;
   };
 
   this.getClientId = function getClientId() {
     return client_id;
   };
+
+  ////////////
 
   this.getStream = function getStream () {
     return stream;
@@ -51,13 +58,40 @@ function Client (client_id, stream, perms) {
 
 // A Route is a collection of one or more clients.
 
-function Route (name) {
-
+function Route (name, mask, acl) {
+  var self = this;
+  if (typeof(mask) === "undefined") mask = api.PERM_READ | api.PERM_WRITE;
   var subscribers = [];
 
   this.getName = function getName () {
     return name;
   }
+
+  this.__defineSetter__("mask", function (m) { mask = m });
+  this.__defineSetter__("acl",  function (a) { acl = acl });
+
+  this.mergeClientMask = function (client) {
+    var cmask = mask;
+    if (acl) {
+      console.log(acl.dump());
+      it.each(client.roles, function (role) {
+        console.log(role);
+        var ar = acl.getRoleByKey(role[1].key)
+        if (ar) {
+          console.log("ADDING ROLE");
+          cmask = ar.mask | cmask;
+        }
+      });
+    } else {
+      cmask = client.mask | cmask;
+    }
+    return cmask
+  };
+  
+  this.canClientSubscribe = function (client) {
+    var cmask = this.mergeClientMask(client);
+    return api.PERM_READ & cmask;
+  };
 
   this.addSubscriber = function addSubscriber (client) {
     for (var i = 0; i < subscribers.length; i++) {
@@ -105,9 +139,9 @@ function Application (data) {
     return ("@client-" + self.getAddress() + "-" + (++current_client_id));
   }
 
-  function maybeCreateRoute (address) {
+  function maybeCreateRoute (address, mask, acl) {
     if (!getRouteByAddress(address)) {
-      routes[address] = new Route(address);
+      routes[address] = new Route(address, mask, acl);
       return routes[address];
     } else {
       return routes[address];
@@ -146,7 +180,7 @@ function Application (data) {
         request.body.keys.forEach(function(key){
           var real_key = self.getRoleByKey(key);
           if (real_key) {
-            client.setPerms(real_key.mask);
+            client.addRole(real_key);
           }
         });
       }
@@ -172,17 +206,29 @@ function Application (data) {
       var addr = request.to;
       // Check that the client has read permissions and the 
       // requested route is a #channel (as opposed to a user)
-      if (client.canRead() && addr.match("^#[a-zA-Z1-9]*$")) {
-        var route = maybeCreateRoute(addr);
-        // TODO: Check for CREATE_CHAN permissions
-        if (!route.addSubscriber(client)) {
-          resp.reply(api.error(500, "Internal Error"));
+      if (addr.match("^#[a-zA-Z1-9]*$")) {
+        var staticChan = self.getChannelByAddress(addr);
+        if (staticChan) {
+          var route = maybeCreateRoute(addr, staticChan.mask, staticChan.acl);
         } else {
-          // If the client is able to join the channel (aka route) 
-          // then inform everyone on that channel that they have entered.
-          route.send(new api.ClientEnter(client.getClientId(), addr));       
-          // Inform the client of a successful "Join".
-          resp.reply(new api.Okay());
+          if (client.canCreate()) {
+            var route = maybeCreateRoute(addr);
+          } else {
+            resp.reply(new api.PermissionDeniedError());
+          }
+        }
+        if (route) {
+          if (!route.canClientSubscribe(client)) {
+            resp.reply(new api.PermissionDeniedError());
+          } else if (!route.addSubscriber(client)) {
+            resp.reply(api.error(500, "Internal Error"));
+          } else {
+            // If the client is able to join the channel (aka route) 
+            // then inform everyone on that channel that they have entered.
+            route.send(new api.ClientEnter(client.getClientId(), addr));       
+            // Inform the client of a successful "Join".
+            resp.reply(new api.Okay());
+          }
         }
       } else {
         resp.reply(new api.PermissionDeniedError());
@@ -215,7 +261,7 @@ function Application (data) {
     this.Message = function (request, resp) {
       // Check that the client can write to the requested channel
       var route = getRouteByAddress(request.to);
-      if (route && client.canWrite()) {
+      if (route) { // TODO Check clients write perms
         // The client could be pulling a fast one so we simply discard the "from" field 
         // from the messages and set it to whatever user we tagged in incoming stream with.
         request.from = client.getClientId();

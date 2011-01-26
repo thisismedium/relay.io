@@ -163,6 +163,7 @@ var it = require("iterators");
     else return message("ApplicationData", null, null, adata.dump());
   };
 
+
   function Application (data) {
 
     var self = this;
@@ -183,7 +184,10 @@ var it = require("iterators");
         }
       };
       this.getRoleByKey = function (key) {
-        return roles[key];
+        for (var i = 0; i < roles.length; i++) {
+          if (roles[i].key === key) return roles[i];
+        }
+        return null;
       };
       this.dump = function () {
         return roles;
@@ -255,7 +259,7 @@ var it = require("iterators");
 
     this.getChannelByAddress = function (address) {
       for (var i = 0; i < data.channels.length; i++) {
-        if (data.channels[i].address = address) 
+        if (data.channels[i].address == address) 
           return {
             "address" : data.channels[i].address,
             "acl"     : (new ACL()).load(data.channels[i].acl),
