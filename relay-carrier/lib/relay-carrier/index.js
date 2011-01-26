@@ -67,7 +67,7 @@ exports.app = function () {
   function proxy(sock) {
     var chan = pool.getConnection().newChannel();
     chan.on("end", function () {
-      sock.close();
+      sock.end();
     });
     chan.on("data", function (data) {
       //console.log(" < DATA FROM SERVER: " + data);
@@ -76,6 +76,9 @@ exports.app = function () {
     sock.on("message", function (data) {
       //console.log(" > DATA FROM BROWSER: " + data);
       chan.writeRaw(data);
+    });
+    sock.on("end", function () {
+      chan.end();
     });
     sock.on("close", function () {
       chan.end();

@@ -18,11 +18,6 @@ function Hub () {
       this.stream = stream;
     }
 
-    this.log = function (data) {
-      console.log(" + Got %s message", data.type);
-    };
-
-
     this.GetApplicationData = function (mesg, resp) {
       appDB.getApplicationData(mesg.to, function (err, data) {
         if (err || !data) {
@@ -39,11 +34,6 @@ function Hub () {
 function MessageHandler (stream) {
 
   var hub = new Hub();
-
-  this.log = function (data) {
-    console.log(data);
-    console.log(" + Got %s message", data.type);
-  };
 
   this.RegisterStation = function (mesg, resp) {
     console.log("Registering a station");
@@ -65,7 +55,6 @@ exports.app = function () {
   var server = net.createServer(function (raw_stream) {
     var appStream = new ApplicationSocketLink(raw_stream);
     appStream.on("channel", function (stream) {
-      console.log(stream);
       stream.bindMessageHandler(new MessageHandler(stream));
     });
   });

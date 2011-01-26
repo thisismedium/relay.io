@@ -53,7 +53,7 @@ function Client (client_id, stream) {
   };
 
 }
-
+Client.prototype.toString = function () { return "<Client>" }
 // Route ///////////////
 
 // A Route is a collection of one or more clients.
@@ -73,12 +73,9 @@ function Route (name, mask, acl) {
   this.mergeClientMask = function (client) {
     var cmask = mask;
     if (acl) {
-      console.log(acl.dump());
       it.each(client.roles, function (role) {
-        console.log(role);
         var ar = acl.getRoleByKey(role[1].key)
         if (ar) {
-          console.log("ADDING ROLE");
           cmask = ar.mask | cmask;
         }
       });
@@ -100,6 +97,16 @@ function Route (name, mask, acl) {
       }
     }
     subscribers.push(client);
+
+    function remove () {
+      self.removeSubscriber(client);
+      self.send(new api.ClientExit(client.getClientId()));
+    }
+
+    client.getStream().on("close", remove);
+    client.getStream().on("end",   remove);
+    client.getStream().on("error", remove);
+
     return true;
   };
 

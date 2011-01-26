@@ -27,8 +27,8 @@ function WebSocketConnection (socket) {
 	}
     };
 
-    this.close = function () {
-        socket.close();
+    this.close = this.end = function () {
+        socket.end();
     };
 
     function handleData (data) {

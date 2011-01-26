@@ -18,7 +18,6 @@ var RelayStation = function () {
   function getApplication (name, callback) {
     if (!apps[name]) {
       hubConnection.send(api.GetApplicationData(name), function (mesg) {
-        console.log(mesg);
         if (mesg.type != "Error") {
           var newApp = new Application(mesg.body);
           apps[name] = newApp;
@@ -34,10 +33,6 @@ var RelayStation = function () {
   
   // This is the object that all of the request are initially handled by
   function MessageHandler (stream) {
-
-    this.log = function (data) {
-      console.log(data.type);
-    };
 
     this.Hello = function (request, resp) {
       // When we get the Hello request we must lookup the requested

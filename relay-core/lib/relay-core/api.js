@@ -282,7 +282,6 @@ var it = require("iterators");
         throw "You must provide a name, key and mask";
       } else {
         this.deleteRoleByKey(key);
-        console.log(data.roles);
         data.roles.push({
           "name" : name,
           "key"  : key,
@@ -318,7 +317,6 @@ var it = require("iterators");
   ////////////////////////////////////////////////////////////////////////
 
   exports.inspectMessage = function (json) {
-    console.log("Inspecting message");
     var mesg = new Message();
     mesg.load(json);
     return mesg;
