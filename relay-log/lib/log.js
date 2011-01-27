@@ -1,7 +1,7 @@
 // # log.js #
 //
-// Keep statistics about traffic flowing through streams. Create a
-// monitor for your server. For each connection,
+// Keep statistics about traffic flowing through streams. Monitor a
+// server.
 //
 // ## Target Schema ##
 //
@@ -14,11 +14,28 @@
 //   count   int
 // );
 
-define(['exports', './util', './mapred'],
-function(exports, U, Mr) {
+define(['exports', './util', './mapred', './stream'],
+function(exports, U, Mr, Stream) {
 
   exports.Log = Log;
+  exports.Stats = Stats;
 
+  
+  // ## Log ##
+
+  // A log collects statistics about items flowing throw a stream. A
+  // server participates with the logger by provinding a `map`
+  // procedure that converts real items to log entries.
+
+  // Create a new Log.
+  //
+  // If the optional `averages` is given, the log will keep track of
+  // running averages for these number of seconds in addition to the
+  // current and total Stats.
+  //
+  // + averages - Array of seconds (optional).
+  //
+  // Returns Log instance.
   U.inherits(Log, U.EventEmitter);
   function Log(averages) {
     U.EventEmitter.call(this);
@@ -47,8 +64,72 @@ function(exports, U, Mr) {
     this.heartbeat(1000);
   }
 
+  // Specify a `map` procedure to transform items that are pushed
+  // through the logger. Use `inject` to add entries to
+  // the log manually.
+
+  Log.prototype.map = function(fn) {
+    this.engine.map(fn);
+    return this;
+  };
+
+  Log.prototype.inject = function(obj) {
+    this.engine.inject(obj);
+    return this;
+  };
+
+  // Start watching events from a stream. As items pass through, the
+  // `map` procedure is called with an AppContext as `this`. Use
+  // `this.log()` to add entires to the log.
+
   Log.prototype.bind = function(stream, appId) {
     this.engine.add(stream, new AppContext(this, appId));
+    return this;
+  };
+
+  // At each heartbeat, the current Stats object is emitted to the
+  // reducer and replaced with a fresh one.
+
+  Log.prototype.heartbeat = function(delay) {
+    this.engine.heartbeat(delay);
+    return this;
+  };
+
+  Log.prototype.publishUpdates = function(port, host) {
+    var self = this,
+        stream,
+        buffer;
+
+    function connect() {
+      (stream = Stream.persistentConnection(port, host))
+        .on('connect', function() {
+          stream.source(flush);
+        })
+        .on('error', function(err) {
+          console.log('Log.publishUpdates:', err);
+        })
+        .on('disconnect', function(retry) {
+          console.log('Connection failed, reconnecting in %s seconds', retry / 1000);
+        });
+    }
+
+    function flush() {
+      if (buffer) {
+        stream.push(buffer);
+        buffer = undefined;
+      }
+    }
+
+    self.on('update', function(_, quantum) {
+      if (stream.writable)
+        stream.push(quantum);
+      else if (buffer)
+        buffer.add(quantum);
+      else
+        buffer = quantum;
+    });
+
+    connect();
     return this;
   };
 
@@ -71,23 +152,12 @@ function(exports, U, Mr) {
     return this.score.total;
   };
 
-  Log.prototype.heartbeat = function(delay) {
-    this.engine.heartbeat(delay);
-    return this;
-  };
-
-  Log.prototype.map = function(fn) {
-    this.engine.map(fn);
-    return this;
-  };
-
-  Log.prototype.inject = function(obj) {
-    this.engine.inject(obj);
-    return this;
-  };
-
   
   // ## AppContext ##
+
+  // Each server keeps a single log. An AppContext simplifies logging
+  // code by closing over an `appId` and making the `channel`
+  // optional.
 
   function AppContext(top, appId) {
     this.top = top;
@@ -111,6 +181,36 @@ function(exports, U, Mr) {
     this.channels = channels || {};
   }
 
+  // As items flow throw a stream, a Stats instance is continually
+  // updated. Each item in the stream is mapped to a channel. Stats
+  // are kept for each channel in the form of (kind, count) pairs.
+  //
+  // For example, a Stats object might track a set of channels like
+  // this:
+  //
+  //     {
+  //       "#global": { bytesIn: 90, bytesOut: 702, itemsIn: 2, itemsOut: 21 },
+  //       "#lobby": { ... },
+  //       ...
+  //     }
+
+  Stats.prototype.update = function(item) {
+    inc(this.channel(this.key(item)), item.kind, item.count);
+    return this;
+  };
+
+  Stats.prototype.key = function(item) {
+    return item.appId + (item.channel ? '/' + item.channel : '');
+  };
+
+  Stats.prototype.channel = function(key) {
+    return U.get(this.channels, key, Object);
+  };
+
+  // Stats are transmitted and received over the wire. The API uses
+  // these methods to create and extract the `body` attribute of a
+  // message.
+
   Stats.load = function(data) {
     return new Stats(data);
   };
@@ -119,22 +219,11 @@ function(exports, U, Mr) {
     return this.channels;
   };
 
-  Stats.prototype.key = function(item) {
-    return item.appId + (item.channel) ? '/' + item.channel : '';
-  };
-
-  Stats.prototype.channel = function(key) {
-    return U.get(this.channels, key, Object);
-  };
+  // Basic math and query operations are supported here.
 
   Stats.prototype.each = function(fn) {
     for (var key in this.channels)
       fn(this.channels[key], key, this);
-    return this;
-  };
-
-  Stats.prototype.update = function(item) {
-    inc(this.channel(this.key(item)), item.kind, item.count);
     return this;
   };
 
@@ -162,6 +251,9 @@ function(exports, U, Mr) {
       return result;
     }
   };
+
+  
+  // ## Helper Methods ##
 
   function incAll(a, b) {
     for (var key in b)

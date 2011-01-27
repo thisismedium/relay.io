@@ -221,15 +221,23 @@ define(['exports', './util'], function(exports, U) {
   
   // ## Quantum ##
 
-  function Quantum(score, data, started) {
+  function Quantum(score, data, started, stopped) {
     this.score = score;
     this.data = (data === undefined) ? score._zero() : data;
     this.started = (started === undefined) ? Date.now() : started;
-    this.stopped = null;
+    this.stopped = stopped || null;
   }
 
   Quantum.prototype.toString = function() {
     return '#<Quantum ' + this.started + ' - ' + this.stopped + '>';
+  };
+
+  Quantum.prototype.dump = function() {
+    return {
+      started: this.started,
+      stopped: (this.stopped || Date.now()),
+      data: this.data.dump()
+    };
   };
 
   Quantum.prototype.stop = function() {
@@ -249,6 +257,13 @@ define(['exports', './util'], function(exports, U) {
     return this;
   };
 
+  Quantum.prototype.add = function(other) {
+    this.started = Math.min(this.started, other.started);
+    this.stopped = Math.max(this.stopped || 0, other.stopped || 0) || null;
+    this.data = this.data.add(other.data);
+    return this;
+  };
+
   
   // ## Average ##
 
@@ -263,7 +278,7 @@ define(['exports', './util'], function(exports, U) {
   };
 
   Average.prototype.push = function(point) {
-    var bound = point.stopped = this.time,
+    var bound = point.stopped - this.time,
         queue = this.queue;
 
     queue.push(point);

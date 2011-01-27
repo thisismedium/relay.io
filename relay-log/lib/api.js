@@ -1,13 +1,13 @@
-define(['exports', 'relay-core/utils/autorecord', './log'],
-function(exports, AutoRec, Log) {
-  return {
+define(['exports', 'relay-core/utils/autorecord', 'relay-core/api', './util'],
+function(exports, AutoRec, CoreApi, U) {
+  var messages = {
 
     Error: AutoRec.autoMessage(function(err, status) {
       this.load({
         type: 'Error',
         status: status || 500,
         body: {
-          message: err.toString()
+          message: err && err.toString()
         }
       });
 
@@ -40,17 +40,11 @@ function(exports, AutoRec, Log) {
       this.load({ type: 'OK', status: 200 });
     }),
 
-    Push: AutoRec.autoMessage(function(stats) {
+    Push: AutoRec.autoMessage(function(quantum) {
       this.load({
         type: 'Push',
-        body: {
-          channels: stats.dump()
-        }
+        body: quantum && quantum.dump()
       });
-
-      this.getStats = function() {
-        return Log.Stats.load(this.getBody().channels);
-      };
     }),
 
     
@@ -89,7 +83,7 @@ function(exports, AutoRec, Log) {
       this.load({
         type: 'Update',
         body: {
-          record: entries.map(function(entry) {
+          record: entries && entries.map(function(entry) {
             return entry.dump();
           })
         }
@@ -121,4 +115,15 @@ function(exports, AutoRec, Log) {
       };
     })
   };
+
+  U.extend(exports, messages);
+
+  exports.constructMessage = function(data) {
+    var ctor = messages[data.type];
+    if (!ctor)
+      return (new CoreAPI.InvalidMessage(data));
+    else
+      return (new ctor()).load(data);
+  };
+
 });

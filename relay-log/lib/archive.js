@@ -18,9 +18,11 @@ define(['exports', './stream', './db'], function(exports, Stream, DB) {
     }
 
     function onPush(mesg, resp) {
-      var stats = mesg.getStats();
-      db.logStats(stats);
-      subscribers.notify(stats);
+      var self = this;
+      db.logStats(mesg.getBody()._data_, function(err) {
+        err && console.error(err.message);
+      });
+      //subscribers.notify(stats);
     }
 
     function onSubscribe(mesg, resp) {

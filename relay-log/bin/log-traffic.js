@@ -10,7 +10,8 @@
 // duration of its hearbeat. At each heartbeat tick, and the stats are
 // folded into an aggregate and an `update` event is emitted.
 
-define(['relay-log/log', 'relay-log/util'], function(Log, U) {
+define(['relay-log/log', 'relay-log/archive', 'relay-log/util'],
+function(Log, Archive, U) {
 
   var addr = process.argv[2],
       stream = new U.EventEmitter();
@@ -29,7 +30,7 @@ define(['relay-log/log', 'relay-log/util'], function(Log, U) {
     this.log(ev.type + '-count', 1, ev.data.to);
   });
 
-  log.start();
+  log.publishUpdates(8160).start();
 
   
   // ## Not Important ##

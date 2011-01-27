@@ -3,6 +3,7 @@ function(exports, Net, CoreNet, Api, U) {
 
   exports.createServer = createServer;
   exports.Server = Server;
+  exports.persistentConnection = persistentConnection;
   exports.createConnection = createConnection;
   exports.Stream = Stream;
 
@@ -22,10 +23,10 @@ function(exports, Net, CoreNet, Api, U) {
 
     var self = this;
 
-    this.server = net.createServer(function(stream) {
-      var link = new CoreNet.ApplicationSocketLink(stream);
+    this.server = Net.createServer(function(stream) {
+      var link = new CoreNet.ApplicationSocketLink(stream, Api);
       link.on('channel', function(channel) {
-        self.emit('connection', new Stream(channel, link));
+        self.emit('connection', new Stream(channel));
       });
     });
 
@@ -43,32 +44,100 @@ function(exports, Net, CoreNet, Api, U) {
   };
 
   
+  // ## Persistent Connection ##
+
+  var RETRY_DEFAULT = 200,
+      RETRY_MAX = 1 * 60 * 1000, // 1 minute.
+      RETRY_MULTIPLE = 2;
+
+  function persistentConnection(port, host) {
+    var retry = RETRY_DEFAULT,
+        stream = createConnection(port, host);
+
+    function reconnect() {
+      stream.useChannel(createChannel(port, host));
+    }
+
+    return stream
+      .on('connect', function() {
+        retry = RETRY_DEFAULT;
+        this.setKeepAlive(true);
+      })
+      .on('error', function() {
+        // Noop: stop Node from triggering a top-level exception.
+      })
+      .on('close', function() {
+        retry = Math.min(retry * RETRY_MULTIPLE, RETRY_MAX);
+        stream.emit('disconnect', retry);
+        setTimeout(reconnect, retry);
+      });
+  }
+
+  function createChannel(port, host) {
+    var stream = Net.createConnection(port, host),
+        link = new CoreNet.ApplicationSocketLink(stream, Api);
+    return link.newChannel();
+  }
+
+  
   // ## Client ##
 
   function createConnection(port, host) {
-    var stream = Net.createConnection(port, host),
-        link = new CoreNet.ApplicationSocketLink(stream);
-    return new Stream(link.newChannel(), link);
+    return new Stream(createChannel(port, host));
   }
 
   U.inherits(Stream, U.EventEmitter);
-  function Stream(channel, link) {
+  function Stream(channel) {
     U.EventEmitter.call(this);
-
     this.id = U.gensym();
-    this.link = link;
-    this.channel = channel;
-
-    U.proxyEvents(['end', 'error', 'close', 'data'], this.channel, this);
-    routeRpcEvents(Api, this.channel, this);
+    channel && this.useChannel(channel);
   }
+
+  Object.defineProperty(Stream.prototype, 'readyState', {
+    get: function() {
+      return this.getSocket().readyState;
+    }
+  });
+
+  Object.defineProperty(Stream.prototype, 'readable', {
+    get: function() {
+      return this.getSocket().readable;
+    }
+  });
+
+  Object.defineProperty(Stream.prototype, 'writable', {
+    get: function() {
+      return this.getSocket().writable;
+    }
+  });
+
+  Stream.prototype.getSocket = function() {
+    return this.channel.getSocket();
+  };
+
+  Stream.prototype.useChannel = function(channel) {
+    this.channel = channel;
+    U.proxyEvents(['connect', 'end', 'error', 'close', 'data'], channel, this);
+    routeRpcEvents(Api, channel, this);
+    return this;
+  };
+
+  Stream.prototype.setKeepAlive = function() {
+    this.getSocket().setKeepAlive();
+    return this;
+  };
 
   Stream.prototype.write = function(obj, callback) {
     return this.channel.write(obj, callback);
   };
 
-  Stream.prototype.source = function() {
-    return this.channel.write(new Api.Source());
+  Stream.prototype.error = function(err, resp) {
+    err = new Api.Error(err.toString());
+    return resp ? resp.reply(err) : this.channel.write(err);
+  };
+
+  Stream.prototype.source = function(callback) {
+    return this.write(new Api.Source(), callback);
   };
 
   Stream.prototype.ok = function(resp) {
@@ -76,19 +145,19 @@ function(exports, Net, CoreNet, Api, U) {
   };
 
   Stream.prototype.push = function(point) {
-    return this.channel.write(new Api.Push(point));
+    return this.write(new Api.Push(point));
   };
 
   Stream.prototype.subscribe = function(app, channel) {
-    return this.channel.write(new Api.Subscribe(app, channel));
+    return this.write(new Api.Subscribe(app, channel));
   };
 
   Stream.prototype.update = function(entries) {
-    return this.channel.write(new Api.Update(entries));
+    return this.write(new Api.Update(entries));
   };
 
   Stream.prototype.cancel = function(app, channel) {
-    return this.channel.write(new Api.Cancel(app, channel));
+    return this.write(new Api.Cancel(app, channel));
   };
 
   
@@ -103,9 +172,11 @@ function(exports, Net, CoreNet, Api, U) {
 
     for (var type in api)
       handler[type] = route;
-    handler.Error = errorRouter(into);
 
-    from.bindRpcHandler(hander);
+    handler.Error = errorRouter(into);
+    handler.InvalidMessage = invalidRouter(into);
+
+    from.bindRpcHandler(handler);
     return from;
   }
 
@@ -121,6 +192,13 @@ function(exports, Net, CoreNet, Api, U) {
     return function routeError(mesg, resp) {
       if (!stream.emit(mesg.getType(), mesg, resp))
         stream.emit('error', mesg.getError());
+    };
+  }
+
+  function invalidRouter(stream) {
+    return function(mesg, resp) {
+      console.log('## Invalid ##');
+      console.dir(mesg);
     };
   }
 
