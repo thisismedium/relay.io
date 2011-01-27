@@ -34,7 +34,7 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
   var self = this;
   var currentMid = 0;
   var callbacks = {};
-  var rpcHandler = null;
+  var messageHandler = null;
 
   api = api || Api;
 
@@ -51,19 +51,21 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
   self.getSocket = function () { return socketChan };
 
   this.dispatch = function (mesg) {
-    if (mesg.getMesgId && callbacks[mesg.getMesgId()]) {
-      callbacks[mesg.getMesgId()](mesg);
-    } else if (rpcHandler) {
-      if (rpcHandler.log) {
-        rpcHandler.log(mesg);
+    if (mesg.id && callbacks[mesg.id]) {
+      callbacks[mesg.id](mesg);
+    } else if (messageHandler) {
+      if (messageHandler.log) {
+        messageHandler.log(mesg);
       }
-      if (mesg.getType && rpcHandler[mesg.getType()]) {
-        rpcHandler[mesg.getType()](mesg, {
+      if (mesg.type && messageHandler[mesg.type]) {
+        messageHandler[mesg.type](mesg, {
           "reply": function (replyMessage, callback) {
-            if (mesg.getMesgId) {
-              replyMessage._data_.mesgId = mesg.getMesgId();
+            if (mesg.id) {
+              replyMessage.from = api.RELAY_MASTER_ADDRESS;
+              replyMessage.id   = mesg.id;
+              replyMessage.to   = mesg.from;
             }
-            self.write(replyMessage, callback);
+            self.send(replyMessage, callback);
           }
         });
       }
@@ -77,20 +79,17 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
       try {
         var json = JSON.parse(data);
       } catch (e) {
-        console.log(e);
         self.emit("error", e);
       }
     }
     if (json) {
-      var mesg = api.constructMessage(json);
-      self.dispatch(mesg);
+      self.dispatch(api.inspectMessage(json));
     }
   });
 
-  this.bindRpcHandler = function (handler) {
-    console.log("Switching RPC handler");
+  this.bindMessageHandler = function (handler) {
     if (handler.initialize) handler.initialize(this);
-    rpcHandler = handler;
+    messageHandler = handler;
   }
 
   this.getId     = function () { return socketChan.getId() };
@@ -98,24 +97,32 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
 
   this.end = this.destroy = function () { return socketChan.end() }
 
-  this.write = this.send = function (obj, callback) {
-    var data = obj.dump();
+  this.write = function (data) {
+    throw "Write should not be used, use '.send' instead";
+  }
+
+  this.send = function (json, callback) {
     if (callback) {
-      if (!data.mesgId) {
+      if (!json.id) {
         var mid = getNextMessageId();
       } else {
-        var mid = data.mesgId;
+        var mid = json.id;
       }
       callbacks[mid] = callback;
-      data.mesgId = mid;
+      json.id = mid;
     }
-    socketChan.write(JSON.stringify(data));
+    if (typeof json['dump'] == "function") json = json.dump();
+
+    var str = JSON.stringify(json);
+    if (!str) throw "Object could not be serialized";
+    else socketChan.write(JSON.stringify(json));
   };
 
   this.writeRaw = function (data) { socketChan.writeRaw(data) };
 
   this.multiWrite = function (chans, obj) {
-    socketChan.multiWrite(chans, JSON.stringify(obj.dump()));
+    if (typeof(obj.dump) == "function") obj = obj.dump();
+    socketChan.multiWrite(chans, JSON.stringify(obj));
   };
 };
 ApplicationSocketLinkChannel.inheritsFrom(events.EventEmitter);

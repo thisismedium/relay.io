@@ -9,51 +9,48 @@ var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 var api = require("relay-core/api");
 var net = require("net");
 
-// Test applications
-var apps = {
-  "test": new Application("test", 
-                          [new Key("read_key",  api.PERM_READ), 
-                           new Key("write_key", api.PERM_WRITE)])
-};
-
 var RelayStation = function () {
-  
+
   var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
-  hubConnection.write(new api.RegisterStation("test"), function(data) {
-        console.log("HELLLLOOOO WORLDDDDDDD");
-        console.log(data);
-  });
 
-  // This is the object that all of the request are initially 
-  // dispatached to (using the api.runRPC controller). 
-  function RelayStationRPC (stream) {
+  var apps = {};
 
-    // The runRPC controller does logging with the .log method
-    this.log = function (data) {
-      console.log(data.getType());
-    };
+  function getApplication (name, callback) {
+    if (!apps[name]) {
+      hubConnection.send(api.GetApplicationData(name), function (mesg) {
+        if (mesg.type != "Error") {
+          var newApp = new Application(mesg.body);
+          apps[name] = newApp;
+          callback(null, newApp);
+        } else {
+          callback(mesg, null);
+        }
+      });
+    } else {
+      callback(null, apps[name]);
+    }
+  }
+  
+  // This is the object that all of the request are initially handled by
+  function MessageHandler (stream) {
 
     this.Hello = function (request, resp) {
-      console.log("Got Hello!");
       // When we get the Hello request we must lookup the requested
       // application and begin passing messages onto it.
-      hubConnection.write(new api.GetApplicationData(request.getBody().getAppId()));
-      var appId = request.getBody().getAppId();
-      if (!apps[appId]) {
-        // no application found, report the error
-        console.log("Invalid Application");
-        resp.reply(new api.InvalidApplicationError());
-      } else {
-        // application found, tell the application to assume this
-        // stream (.assumeStream should take the control away from the
-        // RelayStation so all messages are passed directly to the application)
-        stream.bindRpcHandler(new apps[appId].rpcHandler());
-        stream.dispatch(request);
-      }
+      getApplication(request.to, function (err, app) {
+        if (err) {
+          // no application found, report the error
+          resp.reply(api.InvalidApplicationError());
+        } else {
+          // application found, tell the application to assume this
+          // stream (.assumeStream should take the control away from the
+          // RelayStation so all messages are passed directly to the application)
+          stream.bindMessageHandler(new app.MessageHandler());
+          stream.dispatch(request);
+        }
+      });
     };
 
-    // the runRPC framework will all InvalidRequest when a message can not
-    // be handled but the rpc object...
     this.InvalidRequest = function (request) {
       console.log("Got a non Hello request");
       stream.end();
@@ -64,14 +61,22 @@ var RelayStation = function () {
   var server = net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
-      stream.bindRpcHandler(new RelayStationRPC(stream));
+      stream.bindMessageHandler(new MessageHandler(stream));
     });
   });
+
   
-  this.listen = function () {
-    return server.listen.apply(server, arguments);
+  this.listen = function (port, host) {
+    console.log("Waiting for a connection to the hub...");
+    hubConnection.send(api.RegisterStation("test"), function(data) {
+      if (data.type == "Error") {
+        console.log(" - Could not establish a connection with the hub");
+      } else {
+        console.log(" + Connection to the hub has been established");
+        return server.listen(port, host);    
+      }
+    });
   }
-  
 
 };
 
@@ -81,7 +86,6 @@ exports.app = function () {
   console.log("Starting RelayStation listening on port: " + port + " host: " + host);
   (new RelayStation()).listen(port, host);
 }
-
 
 process.on('uncaughtException', function (err) {
   console.log(err.stack);
