@@ -93,6 +93,12 @@ function Route (name, mask, acl) {
     return api.PERM_READ & cmask;
   };
 
+  this.canClientWrite = function (client) {
+    if (client.address == api.RELAY_MASTER_ADDRESS) return 1;
+    var cmask = this.mergeClientMask(client);
+    return api.PERM_WRITE & cmask;
+  }
+
   this.addSubscriber = function (client) {
     if (this.canClientSubscribe(client)) {
       for (var i = 0; i < subscribers.length; i++) {
@@ -104,7 +110,8 @@ function Route (name, mask, acl) {
       
       function remove () {
         self.removeSubscriber(client);
-        self.send(new api.ClientExit(client.getClientId(), self.address), new Client(api.RELAY_MASTER_ADDRESS));
+        self.send(new api.ClientExit(client.getClientId(), self.address), 
+                  new Client(api.RELAY_MASTER_ADDRESS));
       };
       
       client.getStream().on("close", remove);
@@ -131,12 +138,16 @@ function Route (name, mask, acl) {
   this.send = function (mesg, from) {
     if (!(from instanceof Client)) {
       throw new Error("You must provide a message and client from which the message originated");
-    } else {
+      return false;
+    } else if (this.canClientWrite(from)) {
       mesg.from = from.address;
       var streams = subscribers.map(function (s) { return s.getStream() });
       groupChannelsBySocket(streams).forEach(function(sub) {
         sub[0].multiWrite(sub, mesg);
       });
+      return true;
+    } else {
+      return false;
     }
   };
 };
@@ -276,13 +287,16 @@ function Application (data) {
     this.Message = function (request, resp) {
       // Check that the client can write to the requested channel
       var route = getRouteByAddress(request.to);
-      if (route) { // TODO Check clients write perms
+      if (route) { 
         // Send the message to the proper channels.
-        route.send(request, client);
+        if (route.send(request, client)) {
         // Inform the client that their message has been delivered.
-        resp.reply(new api.Okay());
+          resp.reply(new api.Okay());
+        } else {
+          resp.reply(new api.PermissionDeniedError());
+        }
       } else {
-        client.send(new api.PermissionDeniedError());
+        resp.reply(new api.PermissionDeniedError());
       }
     }
 

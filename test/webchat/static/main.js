@@ -58,7 +58,9 @@ function setupChan(chan, callback) {
 $(document).ready(function() {
   $("#user-input").focus(function(){$(this).addClass("hover")});
   $("#user-input").blur(function(){$(this).removeClass("hover")});
-  var relay = new relayio.RelayClient("test",["write_key", "read_key"]);
+  var relay = new relayio.RelayClient("test",["a37d0b8e-2152-4f64-9b0b-1ae7c39d1da7", 
+                                              "1e39e158-3cb8-4bee-bb07-26b71702c471", 
+                                              "812af3d1-288d-4469-8160-8cbaa4774539"]);
   relay.connect(function (global_chan, private_chan) {
     $("#username").text(relay.getClientId());
     setupChan(global_chan, function() {});

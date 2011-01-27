@@ -75,11 +75,11 @@ var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
 var test  = new api.Application();
 test.setName("Test App");
 test.setAddress("test");
-test.updateRole("read_key", "read_key", api.PERM_READ);
-test.updateRole("write_key", "write_key", api.PERM_WRITE | api.PERM_CREATE_CHAN);
-test.updateRole("magic_key", "magic_key", api.PERM_WRITE | api.PERM_READ);
+test.updateRole("read_key", "a37d0b8e-2152-4f64-9b0b-1ae7c39d1da7", api.PERM_READ);
+test.updateRole("write_key", "1e39e158-3cb8-4bee-bb07-26b71702c471", api.PERM_WRITE | api.PERM_CREATE_CHAN);
+test.updateRole("magic_key", "812af3d1-288d-4469-8160-8cbaa4774539", api.PERM_WRITE | api.PERM_READ);
 var acl = test.createACL();
-acl.addRole("magic_key", api.PERM_READ);
+acl.addRole("812af3d1-288d-4469-8160-8cbaa4774539", api.PERM_READ);
 test.updateChannel("#test", acl, 0);
 appDB.putApplicationData(test, function() {});
 
