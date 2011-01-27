@@ -3,6 +3,8 @@ var it = require("iterators");
 
 (function (exports) {
 
+  exports.RELAY_MASTER_ADDRESS = "relayio";
+
   // Client type permission
 
   // Can read (on by default)
@@ -60,6 +62,7 @@ var it = require("iterators");
   };
   Message.prototype.__defineGetter__("type", function () { return this.message.type });
   Message.prototype.__defineGetter__("to", function () { return this.message.to });
+  Message.prototype.__defineSetter__("to", function (s) { return this.message.to = s });
   Message.prototype.__defineGetter__("from", function () { return this.message.from });
   Message.prototype.__defineSetter__("from", function (address) { this.message.from = address });
   Message.prototype.__defineGetter__("body", function () { return this.message.body });
@@ -129,17 +132,17 @@ var it = require("iterators");
   };
 
   exports.Status = function (channel, clients) {
-    return message("Status", null, channel, {"clients": clients});
+    return message("Status", null, null, {"address": channel, "clients": clients});
   };
 
   // Events...
     
   exports.ClientEnter = function (clientId, channel) {
-    return message ("ClientEnter", null, channel, {"clientId": clientId});
+    return message ("ClientEnter", channel, null, {"clientId": clientId});
   };
 
   exports.ClientExit = function (clientId, channel) {
-    return message ("ClientExit", null, channel, {"clientId": clientId});
+    return message ("ClientExit", channel, null, {"clientId": clientId});
   };
   
   // Message...

@@ -57,7 +57,9 @@ var ApplicationSocketLinkChannel = function (socketChan) {
         messageHandler[mesg.type](mesg, {
           "reply": function (replyMessage, callback) {
             if (mesg.id) {
-              replyMessage.id = mesg.id;
+              replyMessage.from = mesg.to;
+              replyMessage.id   = mesg.id;
+              replyMessage.to   = api.RELAY_MASTER_ADDRESS;
             } 
             self.send(replyMessage, callback);
           }

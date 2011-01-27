@@ -404,17 +404,17 @@ var relayio = {};
 
     messageDispatcher.on("ClientEnter", function (mesg) {
       debug(chans);
-      if (mesg.body.clientId != user_id && chans[mesg.body.channelId]) {
+      if (mesg.body.clientId != user_id && chans[mesg.to]) {
         debug(mesg.body.clientId);
         var new_chan = chans[mesg.body.clientId] ? chans[mesg.body.clientId] : new RelayChannel(mesg.body.clientId, self);
-        chans[mesg.body.channelId].emit("client-enter", new_chan);
+        chans[mesg.to].emit("client-enter", new_chan);
       }
     });
 
     messageDispatcher.on("ClientExit", function (mesg) {
-      if (mesg.body.clientId != user_id && chans[mesg.body.channelId]) {
+      if (mesg.body.clientId != user_id && chans[mesg.to]) {
         var new_chan = chans[mesg.body.clientId] ? chans[mesg.body.clientId] : new RelayChannel(mesg.body.clientId, self);
-        chans[mesg.body.channelId].emit("client-exit", new_chan);
+        chans[mesg.to].emit("client-exit", new_chan);
       }
     });
     

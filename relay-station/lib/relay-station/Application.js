@@ -21,13 +21,14 @@ function Client (client_id, stream) {
 
   this.__defineGetter__("roles", function () { return roles });
   this.__defineGetter__("mask", function () { return perms });
+  this.__defineGetter__("address", function () { return client_id });
 
   this.canWrite = function canWrite () {
-    return api.PERM_WRITE & perms
+    return api.PERM_WRITE & perms;
   };
 
   this.canRead = function canRead () {
-    return api.PERM_READ & perms
+    return api.PERM_READ & perms;
   };
 
   this.canCreate = function () {
@@ -53,7 +54,7 @@ function Client (client_id, stream) {
   };
 
 }
-Client.prototype.toString = function () { return "<Client>" }
+Client.prototype.toString = function () { return "<Client>" };
 // Route ///////////////
 
 // A Route is a collection of one or more clients.
@@ -75,7 +76,7 @@ function Route (name, mask, acl) {
     var cmask = mask;
     if (acl) {
       it.each(client.roles, function (role) {
-        var ar = acl.getRoleByKey(role[1].key)
+        var ar = acl.getRoleByKey(role[1].key);
         if (ar) {
           cmask = ar.mask | cmask;
         }
@@ -83,32 +84,36 @@ function Route (name, mask, acl) {
     } else {
       cmask = client.mask | cmask;
     }
-    return cmask
+    return cmask;
   };
   
   this.canClientSubscribe = function (client) {
+    if (client.address == api.RELAY_MASTER_ADDRESS) return 1;
     var cmask = this.mergeClientMask(client);
     return api.PERM_READ & cmask;
   };
 
-  this.addSubscriber = function addSubscriber (client) {
-    for (var i = 0; i < subscribers.length; i++) {
-      if (subscribers[i].getClientId() === client.getClientId()) {
-        return false;
+  this.addSubscriber = function (client) {
+    if (this.canClientSubscribe(client)) {
+      for (var i = 0; i < subscribers.length; i++) {
+        if (subscribers[i].getClientId() === client.getClientId()) {
+          return false;
+        }
       }
+      subscribers.push(client);
+      
+      function remove () {
+        self.removeSubscriber(client);
+        self.send(new api.ClientExit(client.getClientId(), self.address), new Client(api.RELAY_MASTER_ADDRESS));
+      };
+      
+      client.getStream().on("close", remove);
+      client.getStream().on("end",   remove);
+      client.getStream().on("error", remove);
+      return true;
+    } else {
+      return false;
     }
-    subscribers.push(client);
-
-    function remove () {
-      self.removeSubscriber(client);
-      self.send(new api.ClientExit(client.getClientId()));
-    }
-
-    client.getStream().on("close", remove);
-    client.getStream().on("end",   remove);
-    client.getStream().on("error", remove);
-
-    return true;
   };
 
   this.listSubscribers = function listSubscribers () {
@@ -117,21 +122,24 @@ function Route (name, mask, acl) {
     });
   };
 
-  this.removeSubscriber = function removeSubscriber (client) {
+  this.removeSubscriber = function (client) {
     subscribers = it.filter(function (sub) {
-      return (sub.getClientId() === client.getClientId())
+      return (sub.getClientId() === client.getClientId());
     }, subscribers);
   };
 
-  this.send = function send (mesg) {
-    var streams = subscribers.map(function (s) { return s.getStream() });
-    groupChannelsBySocket(streams).forEach(function(sub) {
-      sub[0].multiWrite(sub, mesg);
-    });
-  }
-
+  this.send = function (mesg, from) {
+    if (!(from instanceof Client)) {
+      throw new Error("You must provide a message and client from which the message originated");
+    } else {
+      mesg.from = from.address;
+      var streams = subscribers.map(function (s) { return s.getStream() });
+      groupChannelsBySocket(streams).forEach(function(sub) {
+        sub[0].multiWrite(sub, mesg);
+      });
+    }
+  };
 };
-
 
 // Application ////////////////////////////////////////////////////////////
 
@@ -168,6 +176,7 @@ function Application (data) {
   this.MessageHandler = function MessageHandler () {
 
     var client = null;
+    var master = new Client(api.RELAY_MASTER_ADDRESS, null);
 
     this.initialize = function (stream) {
       // Every message handler is bound to a single client.
@@ -201,7 +210,7 @@ function Application (data) {
       global.addSubscriber(client);
 
       // Inform the global channel of the clients activation.
-      global.send(new api.ClientEnter(client.getClientId(), "#global"));
+      global.send(new api.ClientEnter(client.getClientId(), "#global"), master);
 
       // Inform the client about their client_id.
       resp.reply(new api.Welcome(client.getClientId()));
@@ -226,14 +235,12 @@ function Application (data) {
           }
         }
         if (route) {
-          if (!route.canClientSubscribe(client)) {
+          if (!route.addSubscriber(client)) {
             resp.reply(new api.PermissionDeniedError());
-          } else if (!route.addSubscriber(client)) {
-            resp.reply(api.error(500, "Internal Error"));
           } else {
             // If the client is able to join the channel (aka route) 
             // then inform everyone on that channel that they have entered.
-            route.send(new api.ClientEnter(client.getClientId(), addr));       
+            route.send(new api.ClientEnter(client.getClientId(), addr), master);       
             // Inform the client of a successful "Join".
             resp.reply(new api.Okay());
           }
@@ -258,7 +265,7 @@ function Application (data) {
       var route = getRouteByAddress(request.to);
       if (route) {
         route.removeSubscriber(client);
-        route.send(new api.ClientExit(client.getClientId(), route.address));
+        route.send(new api.ClientExit(client.getClientId(), route.address), master);
         resp.reply(new api.Okay());
       } else {
         resp.reply(new api.PermissionDeniedError());
@@ -270,11 +277,8 @@ function Application (data) {
       // Check that the client can write to the requested channel
       var route = getRouteByAddress(request.to);
       if (route) { // TODO Check clients write perms
-        // The client could be pulling a fast one so we simply discard the "from" field 
-        // from the messages and set it to whatever user we tagged in incoming stream with.
-        request.from = client.getClientId();
         // Send the message to the proper channels.
-        route.send(request);
+        route.send(request, client);
         // Inform the client that their message has been delivered.
         resp.reply(new api.Okay());
       } else {
@@ -289,6 +293,6 @@ function Application (data) {
   };
 
 }
-Application.prototype = new api.Application()
+Application.prototype = new api.Application();
 exports.Application = Application;
 
