@@ -1,10 +1,10 @@
 require("./inherit");
 var events = require("events");
-var api = require("./api");
+var Api = require("./api");
 var MultiplexedSocket = require("./multiplex").MultiplexedSocket;
 
-var ApplicationSocketLink = function (raw_socket) {
-  
+var ApplicationSocketLink = function (raw_socket, api) {
+
   var self = this;
 
   var socket = new MultiplexedSocket(raw_socket);
@@ -12,13 +12,14 @@ var ApplicationSocketLink = function (raw_socket) {
   socket.on("end",   function () { self.emit("end") });
   socket.on("error", function (e) { self.emit("error",e) });
   socket.on("close", function () { self.emit("close") });
+  socket.on("connect", function() { self.emit("connect"); });
 
-  socket.on("channel", function (chan) { 
-    self.emit("channel", new ApplicationSocketLinkChannel(chan));
+  socket.on("channel", function (chan) {
+    self.emit("channel", new ApplicationSocketLinkChannel(chan, api));
   });
 
   this.newChannel = function () {
-    return (new ApplicationSocketLinkChannel(socket.newChannel()));
+    return (new ApplicationSocketLinkChannel(socket.newChannel(), api));
   };
 
   this.end = function () {
@@ -28,12 +29,14 @@ var ApplicationSocketLink = function (raw_socket) {
 };
 ApplicationSocketLink.inheritsFrom(events.EventEmitter);
 
-var ApplicationSocketLinkChannel = function (socketChan) {
+var ApplicationSocketLinkChannel = function (socketChan, api) {
 
   var self = this;
   var currentMid = 0;
   var callbacks = {};
   var rpcHandler = null;
+
+  api = api || Api;
 
   function getNextMessageId () {
     currentMid += 1;
@@ -43,7 +46,8 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   socketChan.on("end",   function () { self.emit("end") });
   socketChan.on("error", function (e) { self.emit("error",e)});
   socketChan.on("close", function () { self.emit("close")});
-    
+  socketChan.on("connect", function() { self.emit("connect"); });
+
   self.getSocket = function () { return socketChan };
 
   this.dispatch = function (mesg) {
@@ -58,7 +62,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
           "reply": function (replyMessage, callback) {
             if (mesg.getMesgId) {
               replyMessage._data_.mesgId = mesg.getMesgId();
-            } 
+            }
             self.write(replyMessage, callback);
           }
         });

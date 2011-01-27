@@ -15,7 +15,7 @@ function autoDumpRecords (data) {
   for (k in data) {
     if ((data[k] instanceof Object) && data[k]._data_) {
       data[k] = data[k]._data_;
-    } 
+    }
   }
   return data;
 }
@@ -41,12 +41,12 @@ function autoRecord (init) {
         (function (self, key) {
           var turkey = key[0].toUpperCase() + key.slice(1);
           if (!self['get' + turkey])
-            self['get' + turkey] = function () { 
+            self['get' + turkey] = function () {
               return autoMakeRecords(self._data_[key]);
             };
           if (!self['set' + turkey])
-            self['set' + turkey] = function (v) { 
-              self._data_[key] = v; return self; 
+            self['set' + turkey] = function (v) {
+              self._data_[key] = v; return self;
             };
         })(this,k);
       }
@@ -56,3 +56,15 @@ function autoRecord (init) {
   return obj;
 };
 exports.autoRecord = autoRecord;
+
+// autoMessage wraps autoRecord and adds a few methods...
+function autoMessage (fn) {
+  return autoRecord(function () {
+    this.replyWith = function (replyMesg) {
+      if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
+      return replyMesg;
+    };
+    if (fn) fn.apply(this, arguments);
+  });
+}
+exports.autoMessage = autoMessage;

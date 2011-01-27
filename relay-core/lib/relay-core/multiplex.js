@@ -44,18 +44,18 @@ function readNBytes (to_read) {
 
 /*
   # MultiplexedSocket
-  
+
   ApplicataionSocketLink has the job of organizing a socket into multiple sessions
   a session is reffered to as channel.  The idea is that we should be able to divide
   a socket into several channels and work with these channels as if they where simply
   plain sockets; the job of sending message from the socket to the right clients is left
-  up to the MultiplexedSocket.  
+  up to the MultiplexedSocket.
 
-  Multisession sockets are useful in relay because an http proxy might have a many clients 
+  Multisession sockets are useful in relay because an http proxy might have a many clients
   but only needs one socket open to the backend proccess.  The MultiplexedSocket also
   has the important quality of being able to send a single message to many channels at once.
-  This should prevent the backend from having to send the same message more than once. The 
-  downside is that workers must organize the virtual sockets its handling specifically to 
+  This should prevent the backend from having to send the same message more than once. The
+  downside is that workers must organize the virtual sockets its handling specifically to
   take advantage of the many to one transfer, this module provides some useful utility functions
   to make this easier namely 'groupChannelsBySocket'.
 
@@ -85,8 +85,8 @@ function MultiplexedSocket (stream) {
   /*
   The fun starts here, we need to read in a header which contains the
   size of the channels list and the body of the message.
- 
-  The channel list header part is 2 bytes wide and represents the number of channels 
+
+  The channel list header part is 2 bytes wide and represents the number of channels
   that the message will be sent to.
 
   The size of the body is also 2 bytes wide and simply indicates the size in bytes of
@@ -121,7 +121,7 @@ function MultiplexedSocket (stream) {
       mode_handlers[mode]();
     });
   };
-  
+
   // The client has sent an end signal
   function endHandler () {
     streamE.run(readNBytes(2), function (chan_to_end) {
@@ -142,7 +142,7 @@ function MultiplexedSocket (stream) {
         debug("message length is: " + mesg_length);
         streamE.run(readNBytes(number_of_channels * chan_id_width), function (chans_str) {
           var chans = [];
-          for (var i = 0; i < number_of_channels; i++) {            
+          for (var i = 0; i < number_of_channels; i++) {
             var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
             chans.push(parseN(2, slice));
           }
@@ -171,11 +171,16 @@ function MultiplexedSocket (stream) {
   modeReader();
 
   function emitOnAllChannels (signal) {
+    if (channels.length == 0)
+      return false;
+
     for (channel in channels) {
       if (channels.hasOwnProperty(channel)) {
         channels[channel].emit(signal, Array.prototype.slice.call(arguments,1));
       }
     }
+
+    return true;
   };
 
   function getNewChannelId () {
@@ -185,7 +190,7 @@ function MultiplexedSocket (stream) {
       }
     }
   };
-  
+
   this.newChannel = function () {
     var nid = getNewChannelId();
     var chan = new SocketChannel(nid);
@@ -194,21 +199,23 @@ function MultiplexedSocket (stream) {
   };
 
   function removeChannel (id) {
-    if (id in channels) 
+    if (id in channels)
       delete channels[id];
   };
 
-  stream.on("close",function(){ 
+  stream.on("close",function(){
     emitOnAllChannels ("close");
     self.emit("close");
   });
-  stream.on("end",function(){ 
+  stream.on("end",function(){
     emitOnAllChannels ("end");
     self.emit("end");
   });
-  stream.on("error",function (e){ 
-    emitOnAllChannels ("error",e);
-    self.emit("error");
+  stream.on("error",function (e){
+    // Node will throw an exception if an "error" event isn't
+    // handled. Unconditionally emitting an error event on self is
+    // hard to catch when your application just uses channels.
+    emitOnAllChannels ("error",e) || self.emit("error");
   });
 
   stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });
@@ -230,13 +237,13 @@ function MultiplexedSocket (stream) {
 
     this.getSocket = function () { return stream };
 
-    this.end = this.destroy = function () { 
+    this.end = this.destroy = function () {
       var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
       doWrite(buf);
       // removeChannel(id);
     };
 
-    this.write = function (data) { 
+    this.write = function (data) {
       self._write([this], data)
     }
 
@@ -260,7 +267,7 @@ function MultiplexedSocket (stream) {
       bufD.copy(bufA, bufB.length, 0);
 
       var bufC = new Buffer(json);
-      bufC.copy(bufA,bufB.length + bufD.length,0);    
+      bufC.copy(bufA,bufB.length + bufD.length,0);
       doWrite(bufA);
     }
 
@@ -272,9 +279,9 @@ function MultiplexedSocket (stream) {
           // debug(buf.toString());
           stream.write(buf);
         } catch (e) {
-        
+
         }
-      }      
+      }
     }
 
   };

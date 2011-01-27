@@ -1,14 +1,15 @@
-var autoRecord = require("./utils/autorecord").autoRecord;
+var $autoMessage = require("./utils/autorecord").autoMessage;
+
 
 /*
-  Messages are building blocks of a good conversation, the following is how 
-  the client converses with the server.  Certain parts of the converstation 
+  Messages are building blocks of a good conversation, the following is how
+  the client converses with the server.  Certain parts of the converstation
   have different meanings based upon if the member is a server or client.
 
   Starting a session
   -------------------
 
-  To start a session a client must great the server with the upmost politeness.  
+  To start a session a client must great the server with the upmost politeness.
   If the client wishes to do anything at all it must present keys.
 
   Client says: Hello <application> {I have} <[keys: key]>
@@ -20,16 +21,16 @@ var autoRecord = require("./utils/autorecord").autoRecord;
   Joining a channel
   -----------------
 
-  Client says: Join <channel> 
+  Client says: Join <channel>
 
   Server says: (Join | Enter)
              | Error "Permission Denied"
 
   Recieving a Message
   -------------------
-  
+
   Client says: (nothing after a Join)
-  
+
   Server says: Message to: <client|channel> from: <client|channel> {with the} <message_body>
 
   Sending a Message
@@ -43,31 +44,19 @@ var autoRecord = require("./utils/autorecord").autoRecord;
 
 
 /*
-  Status Codes: 
+  Status Codes:
 
      2__: Success
      5__: Error
 
  */
 
-// autoMessage wraps autoRecord and adds a few methods...
-
-function $autoMessage (fn) {
-  return autoRecord(function () {
-    this.replyWith = function (replyMesg) {
-      if (this.getMesgId) replyMesg._data_.mesgId = this.getMesgId();
-      return replyMesg;
-    };
-    if (fn) fn.apply(this, arguments);
-  });
-}
-
 (function (exports) {
 
   // Client type permission
 
   // Can read (on by default)
-  exports.PERM_READ   = 1 << 0; 
+  exports.PERM_READ   = 1 << 0;
 
   // Can write (send messages)
   exports.PERM_WRITE  = 1 << 1;
@@ -79,9 +68,9 @@ function $autoMessage (fn) {
   exports.PERM_DELETE_CHAN = 1 << 3;
 
 
-  exports.PERM_ADMIN = exports.PERM_READ 
-                     | exports.PERM_WRITE 
-                     | exports.PERM_CREATE_CHAN 
+  exports.PERM_ADMIN = exports.PERM_READ
+                     | exports.PERM_WRITE
+                     | exports.PERM_CREATE_CHAN
                      | exports.PERM_DELETE_CHAN;
 
   var ST_SUCCESS = 200;
@@ -99,7 +88,7 @@ function $autoMessage (fn) {
                  "body"  : error_message ? error_message : "" });
   });
 
-  exports.InvalidApplicationError = function () { 
+  exports.InvalidApplicationError = function () {
     return new exports.Error(ST_INVALID_APP, "Invalid Application");
   };
 
@@ -111,7 +100,7 @@ function $autoMessage (fn) {
     return new exports.Error(ST_INVALID_REQUEST, "Invalid Request");
   };
 
-  
+
   ////////////////////////////////////////////////////////////////////////
 
   // General Success Message...
@@ -126,9 +115,9 @@ function $autoMessage (fn) {
   exports.Hello = $autoMessage (function(app_id, keys) {
     this.load({
       "type": "Hello",
-      "body": { 
-        "keys": keys, 
-        "appId": app_id 
+      "body": {
+        "keys": keys,
+        "appId": app_id
       }
     });
     this.getKeys = function () {
@@ -139,7 +128,7 @@ function $autoMessage (fn) {
       }
     }
   });
-  
+
   exports.Welcome = $autoMessage (function (client_id) {
     this.load({
       "status": ST_SUCCESS,
@@ -151,7 +140,7 @@ function $autoMessage (fn) {
     this.getClientId = function () {
       return this.getBody().getClientId();
     }
-    
+
   });
 
   // Join - Listen for messages
@@ -170,27 +159,27 @@ function $autoMessage (fn) {
 
   exports.Exit = $autoMessage (function(address) {
     this.load({
-      "type":"Exit", 
+      "type":"Exit",
       "body": {
-        "address": address 
+        "address": address
       }
-    });  
+    });
     this.getAddress = function () { return this.getBody().getAddress() }
   });
 
 
   exports.ClientEnter = $autoMessage(function(client_id, channel) {
-    this.load({ "type": "ClientEnter", 
-                "body": { 
+    this.load({ "type": "ClientEnter",
+                "body": {
                   "clientId": client_id,
                   "channelId": channel }
               });
   });
 
   exports.ClientExit = $autoMessage(function(client_id, channel) {
-    this.load({ 
-      "type": "ClientExit", 
-      "body": { 
+    this.load({
+      "type": "ClientExit",
+      "body": {
         "clientId": client_id,
         "channelId": channel }
     });
@@ -199,7 +188,7 @@ function $autoMessage (fn) {
   exports.GetStatus = $autoMessage(function(channel) {
     this.load({
       "type": "GetStatus",
-      "body": { 
+      "body": {
         "address": channel
       }
     });
@@ -207,7 +196,7 @@ function $autoMessage (fn) {
       return this.getBody();
     }
   });
-  
+
   exports.ResourceStatus = $autoMessage(function(channel, clients) {
     this.load({"type": "ResourceStatus",
                "body": {
@@ -241,7 +230,7 @@ function $autoMessage (fn) {
 
   // ApplicationData
   exports.ApplicationData = $autoMessage(function (appId, keys) {
-    this.load({"type": "ApplicationData", 
+    this.load({"type": "ApplicationData",
                "body": {
                  "appId": appId,
                  "keys": keys
@@ -296,7 +285,7 @@ function $autoMessage (fn) {
 
   exports.constructMessage = function (data) {
     var cons = mesg_constructors[data.type];
-    if (!cons) 
+    if (!cons)
       return (new exports.InvalidMessage(data));
     else
       return (new cons()).load(data)
@@ -314,7 +303,7 @@ function $autoMessage (fn) {
 
   exports.bindStreamToRpc = function (stream, env) {
     stream.removeAllListeners("data");
-    if (env.initialize) { 
+    if (env.initialize) {
       env.initialize(stream);
     }
     stream.on("data", exports.runRPC(env));
