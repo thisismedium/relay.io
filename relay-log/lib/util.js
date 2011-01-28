@@ -6,7 +6,6 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
   exports.gensym = gensym;
   exports.splitAppId = splitAppId;
-  exports.proxyEvents = proxyEvents;
   exports.readlines = readlines;
   exports.inherits = Sys.inherits;
   exports.EventEmitter = Events.EventEmitter;
@@ -14,7 +13,14 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.concat = concat;
   exports.toArray = toArray;
   exports.get = get;
+  exports.pop = pop;
   exports.extend = extend;
+  exports.extendDef = extendDef;
+  exports.access = access;
+  exports.proxyEvents = proxyEvents;
+  exports.proxyProps = proxyProps;
+  exports.hostname = hostname;
+  exports.Host = Host;
 
   
   // ## Helpers ##
@@ -29,17 +35,6 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   function splitAppId(name) {
     var probe = name.match(/^([^\/]*)(?:\/(.+))?$/);
     return probe && { appId: probe[1], channel: probe[2] || null };
-  }
-
-  
-  // ## Events ##
-
-  function proxyEvents(names, from, into) {
-    names.forEach(function(name) {
-      from.on(name, function() {
-        into.emit.apply(into, unshift(arguments, name));
-      });
-    });
   }
 
   
@@ -115,6 +110,12 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     return val;
   }
 
+  function pop(obj, key) {
+    var val = obj[key];
+    delete obj[key];
+    return val;
+  }
+
   function extend(target) {
     var key, obj;
 
@@ -127,5 +128,89 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
     return target;
   }
+
+  function extendDef(target) {
+    var key, obj;
+
+    if (target) {
+      for (key in target) {
+        if (target[key] === undefined)
+          delete target[key];
+      }
+    }
+
+    for (var i = 1, l = arguments.length; i < l; i++) {
+      if ((obj = arguments[i])) {
+        for (key in obj) {
+          if (obj[key] !== undefined)
+            target[key] = obj[key];
+        }
+      }
+    }
+
+    return target;
+  }
+
+  function access(self, obj, args) {
+    var key = args[0], val = args[1];
+
+    if (args.length == 0)
+      return obj;
+    else if (typeof key == 'object')
+      extend(obj, key);
+    else if (args.length == 1)
+      return obj[key];
+    else
+      obj[key] = val;
+
+    return self;
+  }
+
+  function proxyProps(ctor, props, accessor) {
+    props.forEach(function(name) {
+      Object.defineProperty(ctor.prototype, name, {
+        get: function() { return accessor.call(this)[name]; },
+        set: function(val) { accessor.call(this)[name] = val; }
+      });
+    });
+  }
+
+  function proxyEvents(names, from, into) {
+    names.forEach(function(name) {
+      from.on(name, function() {
+        into.emit.apply(into, unshift(arguments, name));
+      });
+    });
+  }
+
+  
+  // ## Network ##
+
+  function hostname(port, host) {
+    if (port instanceof Host)
+      return port;
+    else if (typeof port == 'number')
+      return new Host(port, host);
+    else if (port && host)
+      return new Host(parseInt(port), host);
+
+    var probe = port.toString().match(/^(?:(\w[^:]+)\:)?(\d+)$/);
+    if (!probe)
+      throw new Error('Invalid hostname `' + port + '`.');
+    return new Host(probe[2], probe[1]);
+  }
+
+  function Host(port, host) {
+    this.port = port;
+    this.host = host || 'localhost';
+  }
+
+  Host.prototype.toString = function() {
+    return '#<Host ' + this.hostname() + '>';
+  };
+
+  Host.prototype.hostname = function() {
+    return this.host + this.port;
+  };
 
 });

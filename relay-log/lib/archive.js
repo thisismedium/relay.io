@@ -2,40 +2,45 @@ define(['exports', './stream', './db'], function(exports, Stream, DB) {
 
   exports.createServer = createServer;
 
-  function createServer(db) {
+  function createServer(me, db) {
     var subscribers = new DB.Router();
 
-    return Stream.createServer(function(stream) {
+    return Stream.createServer(me, function(stream) {
       stream
         .on('Source', onSource)
         .on('Push', onPush)
         .on('Subscribe', onSubscribe)
-        .on('close', onClose);
+        .on('close', onClose)
+        .on('error', onError);
     });
 
-    function onSource(mesg, resp) {
-      return this.ok(resp);
+    function onSource(mesg) {
+      return this.peer(mesg.from).Ok(mesg);
     }
 
     function onPush(mesg, resp) {
-      var self = this;
-      db.logStats(mesg.getBody()._data_, function(err) {
-        err && console.error(err.message);
+      db.logStats(mesg.body(), function(err) {
+        err && console.log(err.message);
       });
-      //subscribers.notify(stats);
+      //subscribers.n2otify(stats);
     }
 
     function onSubscribe(mesg, resp) {
-      subscribers.add(this, mesg.getApp(), mesg.getChannel());
+      // subscribers.add(this, mesg.getApp(), mesg.getChannel());
     }
 
-    function onCancel(mesg, resp) {
-      subscribers.remove(this, mesg.getApp(), mesg.getChannel());
-      this.ok(resp);
+    function onCancel(mesg) {
+      // subscribers.remove(this, mesg.getApp(), mesg.getChannel());
+      this.Ok(mesg);
     }
 
     function onClose() {
-      subscribers.remove(this);
+      // subscribers.remove(this);
+    }
+
+    function onError(err) {
+      console.log('## Caught Error ##');
+      console.log(err && err.toString());
     }
   }
 

@@ -1,24 +1,16 @@
-define(['exports', 'relay-core/utils/autorecord', 'relay-core/api', './util'],
-function(exports, AutoRec, CoreApi, U) {
-  var messages = {
+define(['exports', 'relay-core/api', './protocol', './util'],
+function(exports, CoreApi, P, U) {
 
-    Error: AutoRec.autoMessage(function(err, status) {
-      this.load({
-        type: 'Error',
-        status: status || 500,
-        body: {
-          message: err && err.toString()
-        }
-      });
+  
+  // ## Protocol ##
 
-      this.getMessage = function() {
-        return this.getBody().message;
-      };
+  var protocol = {
 
-      this.getError = function() {
-        return new Error(this.getMessage());
-      };
-    }),
+    Error: function(err, status, orig) {
+      return P.message('Error')
+        .status(status || 500)
+        .body({ message: (err && err.toString()), orig: orig });
+    },
 
     
     // ## Logger connects to Archive ##
@@ -32,20 +24,19 @@ function(exports, AutoRec, CoreApi, U) {
     //     L: Push ...
     //     ...
 
-    Source: AutoRec.autoMessage(function() {
-      this.load({ type: 'Source' });
-    }),
+    Source: function() {
+      return P.message('Source');
+    },
 
-    OK: AutoRec.autoMessage(function() {
-      this.load({ type: 'OK', status: 200 });
-    }),
+    OK: function() {
+      return P.message('Ok')
+        .status(200);
+    },
 
-    Push: AutoRec.autoMessage(function(quantum) {
-      this.load({
-        type: 'Push',
-        body: quantum && quantum.dump()
-      });
-    }),
+    Push: function(quantum) {
+      return P.message('Push')
+        .body(quantum.dump());
+    },
 
     
     // ## Website wants stats ##
@@ -61,69 +52,31 @@ function(exports, AutoRec, CoreApi, U) {
     //     W: Cancel #app
     //     A: OK
 
-    Subscribe: AutoRec.autoMessage(function(app, channel) {
-      this.load({
-        type: 'Subscribe',
-        body: {
-          app: app,
-          channel: channel || null
-        }
-      });
+    Subscribe: function(app, channel) {
+      return P.message('Subscribe')
+        .body({ app: app, channel: channel || null });
+    },
 
-      this.getApp = function() {
-        return this.getBody().app;
-      };
+    Update: function(entries) {
+      return P.message('Update')
+        .body('record', entries.map(function(entry) {
+          return entry.dump();
+        }));
+    },
 
-      this.getChannel = function() {
-        return this.getBody().channel;
-      };
-    }),
-
-    Update: AutoRec.autoMessage(function(entries) {
-      this.load({
-        type: 'Update',
-        body: {
-          record: entries && entries.map(function(entry) {
-            return entry.dump();
-          })
-        }
-      });
-
-      this.each = function(fn) {
-        var self = this;
-        this.getBody().entries.forEach(function(obj, index, ctx) {
-          fn(Entry.load(obj), index, self);
-        });
-      };
-    }),
-
-    Cancel: AutoRec.autoMessage(function(app, channel) {
-      this.load({
-        type: 'Cancel',
-        body: {
-          app: app,
-          channel: channel || null
-        }
-      });
-
-      this.getApp = function() {
-        return this.getBody().app;
-      };
-
-      this.getChannel = function() {
-        return this.getBody().channel;
-      };
-    })
+    Cancel: function(app, channel) {
+      return P.message('Cancel')
+        .body({ app: app, channel: channel || null });
+    }
   };
 
-  U.extend(exports, messages);
+  U.extend(exports, protocol);
 
-  exports.constructMessage = function(data) {
-    var ctor = messages[data.type];
-    if (!ctor)
-      return (new CoreAPI.InvalidMessage(data));
-    else
-      return (new ctor()).load(data);
+  
+  // ## Marshalling ##
+
+  exports.inspectMessage = function(data) {
+    return P.Message.load(data);
   };
 
 });

@@ -55,6 +55,9 @@ define(['exports', 'pg', './util'], function(exports, Pg, U) {
   };
 
   Insert.prototype.eachValue = function(seq, fn) {
+    if (!seq)
+      throw new Error('Insert.eachValue: invalid sequence `' + seq + '`.');
+
     this._exec = function(client) {
       var values,
           self = this,

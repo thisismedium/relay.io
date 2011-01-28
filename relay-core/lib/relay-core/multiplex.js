@@ -198,8 +198,8 @@ function MultiplexedSocket (stream) {
   stream.on("error",function (e){
     // Node will throw an exception if an "error" event isn't
     // handled. Unconditionally emitting an error event on self is
-    // hard to catch when your application just uses channels.
-    emitOnAllChannels ("error", e) || self.emit("error");
+    // hard to catch in client applications that just use channels.
+    emitOnAllChannels ("error", e) || self.emit("error", e);
   });
 
   stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });

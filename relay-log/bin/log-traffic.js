@@ -30,7 +30,7 @@ function(Log, Archive, U) {
     this.log(ev.type + '-count', 1, ev.data.to);
   });
 
-  log.publishUpdates(8160).start();
+  log.publishUpdates('traffic@localhost', 8160).start();
 
   
   // ## Not Important ##

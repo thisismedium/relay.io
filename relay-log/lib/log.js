@@ -95,34 +95,43 @@ function(exports, U, Mr, Stream) {
     return this;
   };
 
-  Log.prototype.publishUpdates = function(port, host) {
+  Log.prototype.publishUpdates = function(me, port, host) {
     var self = this,
+        ready = false,
         stream,
         buffer;
 
     function connect() {
       (stream = Stream.persistentConnection(port, host))
+        .identity(me)
         .on('connect', function() {
-          stream.source(flush);
+           stream.Source(onOk);
         })
         .on('error', function(err) {
-          console.log('Log.publishUpdates:', err);
+          console.log('Log.publishUpdates Error:', err);
         })
         .on('disconnect', function(retry) {
+          ready = false;
           console.log('Connection failed, reconnecting in %s seconds', retry / 1000);
         });
     }
 
+    function onOk(mesg) {
+      ready = true;
+      stream.peer(mesg.from);
+      flush();
+    }
+
     function flush() {
       if (buffer) {
-        stream.push(buffer);
+        stream.Push(buffer);
         buffer = undefined;
       }
     }
 
     self.on('update', function(_, quantum) {
-      if (stream.writable)
-        stream.push(quantum);
+      if (ready)
+        stream.Push(quantum);
       else if (buffer)
         buffer.add(quantum);
       else
