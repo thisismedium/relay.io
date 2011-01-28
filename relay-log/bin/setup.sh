@@ -12,3 +12,7 @@ createdb -U root -E UTF8 -O ${username} ${dbname}
 
 echo "Importing schema ${schema}."
 psql -U ${username} ${dbname} < ${schema}
+
+echo ""
+echo "Note: make sure the connection string in host_settings/$USER.js is correct."
+echo ""
