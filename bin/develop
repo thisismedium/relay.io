@@ -1,0 +1,74 @@
+#!/usr/bin/env node
+
+var Sys = require('sys'),
+    Path = require('path'),
+    Child = require('child_process'),
+    writeError = process.binding('stdio').writeError;
+
+function main() {
+  var here = Path.dirname(process.argv[1]),
+      supervisor = new Supervisor(Path.dirname(here));
+
+  supervisor
+    .serve('Hub: ', 'relay-hub')
+    .serve('Archive: ', 'relay-log');
+
+  setTimeout(function() { supervisor.serve('Station: ', 'relay-station'); }, 250);
+  setTimeout(function() { supervisor.serve('Carrier: ', 'relay-carrier'); }, 500);
+}
+
+function Supervisor(base) {
+  this.base = base;
+  this.children = {};
+
+  var self = this;
+  this.onExit = function() { self.die(this); };
+}
+
+Supervisor.prototype.resolve = function(path) {
+  if (path && path[0] == '/')
+    return path;
+  return Path.join(this.base, path || '');
+};
+
+Supervisor.prototype.serve = function(prefix, name) {
+  var base = this.resolve(name),
+      script = Path.join(base, 'server.js');
+  return this.spawn(prefix, 'redef', ['-p', base, script], {
+    cwd: base
+  });
+};
+
+Supervisor.prototype.spawn = function(prefix, cmd, args, opt) {
+  var proc = Child.spawn(cmd, args, opt),
+      linePrefix = '\n' + prefix + '$1';
+
+  (this.children[proc.pid] = proc)
+    .on('exit', this.onExit);
+
+  proc.stdout.setEncoding('utf-8');
+  proc.stdout.on('data', function(chunk) {
+    Sys.print(prefix + chunk.replace(/\n([^$])/, linePrefix));
+  });
+
+  proc.stderr.setEncoding('utf-8');
+  proc.stderr.on('data', function(chunk) {
+    writeError(prefix + chunk.replace(/\n([^$])/, linePrefix));
+  });
+
+  return this;
+};
+
+Supervisor.prototype.die = function(proc) {
+  if (proc.pid in this.children) {
+    delete this.children[proc.pid];
+    for (var pid in this.children) {
+      proc = this.children[pid];
+      delete this.children[pid];
+      proc.kill();
+    }
+  }
+};
+
+if (module.id == '.')
+  main();

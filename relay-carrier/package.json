@@ -3,7 +3,6 @@
   "description": "",
   "version": "0.0.1",
   "author": "James Sanders",
-  "main": "./server.js",
   "dependencies": {},
   "directories": { "lib": "lib/relay-carrier" },
   "bin": {"relay-carrier": "bin/relay-carrier"},

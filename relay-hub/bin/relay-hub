@@ -1,7 +1,4 @@
-#!/usr/bin/env node
-process.on('uncaughtException', function (err) {
-  console.log(err.stack);
-  console.log('Caught exception: ' + err);
-});
+#!/bin/sh
 
-require("relay-hub").app();
+pkg=`dirname $0`/..
+exec defjs -p $pkg $pkg/server.js
