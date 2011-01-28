@@ -1,3 +1,7 @@
+// # sql.js #
+//
+// Wrap up the node-postgres interface behind a Javascript/SQL DSL.
+
 define(['exports', 'pg', './util'], function(exports, Pg, U) {
 
   exports.Insert = Insert;

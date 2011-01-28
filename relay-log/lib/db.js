@@ -1,3 +1,7 @@
+// # db.js #
+//
+// Interface to Log database.
+
 define(['exports', './sql', './util'], function(exports, Sql, U) {
 
   exports.LogDB = LogDB;

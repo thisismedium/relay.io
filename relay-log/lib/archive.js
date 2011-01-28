@@ -1,11 +1,16 @@
-define(['exports', './stream', './db'], function(exports, Stream, DB) {
+// # archive.js #
+//
+// The archive server listens for updates from Relay Stations and
+// answers queries about usage.
+
+define(['exports', './api', './db'], function(exports, Api, DB) {
 
   exports.createServer = createServer;
 
   function createServer(me, db) {
     var subscribers = new DB.Router();
 
-    return Stream.createServer(me, function(stream) {
+    return Api.createServer(me, function(stream) {
       stream
         .on('Source', onSource)
         .on('Push', onPush)

@@ -14,8 +14,8 @@
 //   count   int
 // );
 
-define(['exports', './util', './mapred', './stream'],
-function(exports, U, Mr, Stream) {
+define(['exports', './util', './mapred', './api'],
+function(exports, U, Mr, Api) {
 
   exports.Log = Log;
   exports.Stats = Stats;
@@ -102,7 +102,7 @@ function(exports, U, Mr, Stream) {
         buffer;
 
     function connect() {
-      (stream = Stream.persistentConnection(port, host))
+      (stream = Api.persistentConnection(port, host))
         .identity(me)
         .on('connect', function() {
            stream.Source(onOk);
