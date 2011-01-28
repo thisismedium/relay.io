@@ -5,6 +5,7 @@ var Application = require("./Application").Application;
 var Key         = require("./Key").Key;
 
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
+var Log = require("relay-log/log").Log;
 
 var api = require("relay-core/api");
 var net = require("net");
@@ -12,7 +13,6 @@ var net = require("net");
 var RelayStation = function () {
 
   var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
-
   var apps = {};
 
   function getApplication (name, callback) {
@@ -30,7 +30,14 @@ var RelayStation = function () {
       callback(null, apps[name]);
     }
   }
-  
+
+  var identity, logger;
+
+  function logChannels(ev) {
+    this.log(ev.type + '-bytes', ev.nbytes, ev.data.to);
+    this.log(ev.type + '-count', 1, ev.data.to);
+  }
+
   // This is the object that all of the request are initially handled by
   function MessageHandler (stream) {
 
@@ -49,13 +56,19 @@ var RelayStation = function () {
           stream.dispatch(request);
         }
       });
+
+      // Bind a logger to this stream. Inject a not about the hello
+      // request since it wouldn't be tracked otherwise.
+      logger
+        .bind(stream, request.to)
+        .map(logChannels)
+        .inject({ appId: request.to, kind: 'hello', count: 1 });
     };
 
     this.InvalidRequest = function (request) {
       console.log("Got a non Hello request");
       stream.end();
     };
-
   }
 
   var server = net.createServer(function (raw_stream) {
@@ -65,15 +78,20 @@ var RelayStation = function () {
     });
   });
 
-  
+
   this.listen = function (port, host) {
     console.log("Waiting for a connection to the hub...");
+
+    identity = 'station-' + port + '@' + host;
+    logger = new Log().publishUpdates(identity, settings.archive);
+
     hubConnection.send(api.RegisterStation("test"), function(data) {
       if (data.type == "Error") {
         console.log(" - Could not establish a connection with the hub");
       } else {
         console.log(" + Connection to the hub has been established");
-        return server.listen(port, host);    
+        logger.start();
+        return server.listen(port, host);
       }
     });
   }

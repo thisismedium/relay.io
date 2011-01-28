@@ -12,6 +12,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.each = each;
   exports.concat = concat;
   exports.toArray = toArray;
+  exports.isEmpty = isEmpty;
   exports.get = get;
   exports.pop = pop;
   exports.extend = extend;
@@ -102,6 +103,12 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
   
   // ## Objects ##
+
+  function isEmpty(obj) {
+    for (var _ in obj)
+      return false;
+    return true;
+  }
 
   function get(obj, key, ctor) {
     var val = obj[key];

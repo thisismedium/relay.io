@@ -7,6 +7,7 @@
   "bin": {"relay-station": "./bin/relay-station"},
   "mappings": {
     "relay-core": "file:../relay-core",
+    "relay-log": "file:../relay-log",
     "servermedium": "file:../deps/servermedium.js",
     "iterators": "file:../deps/iterator.js"
   }

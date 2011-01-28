@@ -83,7 +83,9 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
       }
     }
     if (json) {
-      self.dispatch(api.inspectMessage(json));
+      var mesg = api.inspectMessage(json);
+      self.emit('read', mesg, Buffer.byteLength(data));
+      self.dispatch(mesg);
     }
   });
 
@@ -101,21 +103,25 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
     throw "Write should not be used, use '.send' instead";
   }
 
-  this.send = function (json, callback) {
+  this.send = function (mesg, callback) {
     if (callback) {
-      if (!json.id) {
+      if (!mesg.id) {
         var mid = getNextMessageId();
       } else {
-        var mid = json.id;
+        var mid = mesg.id;
       }
       callbacks[mid] = callback;
-      json.id = mid;
+      mesg.id = mid;
     }
-    if (typeof json['dump'] == "function") json = json.dump();
+
+    var json = (typeof mesg['dump'] == "function") ? mesg.dump() : mesg;
 
     var str = JSON.stringify(json);
     if (!str) throw "Object could not be serialized";
-    else socketChan.write(JSON.stringify(json));
+    else {
+      this.emit('write', mesg, Buffer.byteLength(str));
+      socketChan.write(str);
+    }
   };
 
   this.writeRaw = function (data) { socketChan.writeRaw(data) };

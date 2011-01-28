@@ -131,7 +131,7 @@ function(exports, U, Mr, Api) {
 
     self.on('update', function(_, quantum) {
       if (ready)
-        stream.Push(quantum);
+        quantum.data.isEmpty() || stream.Push(quantum);
       else if (buffer)
         buffer.add(quantum);
       else
@@ -229,6 +229,10 @@ function(exports, U, Mr, Api) {
   };
 
   // Basic math and query operations are supported here.
+
+  Stats.prototype.isEmpty = function() {
+    return U.isEmpty(this.channels);
+  };
 
   Stats.prototype.each = function(fn) {
     for (var key in this.channels)

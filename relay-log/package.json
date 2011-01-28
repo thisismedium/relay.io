@@ -1,7 +1,6 @@
 {
   "name": "relay-log",
   "version": "0.0.1",
-  "main": "./server.js",
   "mappings": {
     "relay-core": "file:../relay-core",
     "servermedium": "file:../deps/servermedium.js",
