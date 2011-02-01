@@ -295,6 +295,7 @@ function(exports, Net, Assert, CoreNet, U) {
     return '#<' + this.api.name + ' Stream ' + this.identity() + '>';
   };
 
+  // My name.
   Stream.prototype.identity = function(name) {
     if (arguments.length == 0)
       return this.name;
@@ -302,6 +303,7 @@ function(exports, Net, Assert, CoreNet, U) {
     return this;
   };
 
+  // Your name.
   Stream.prototype.peer = function(name) {
     if (arguments.length == 0)
       return this.peerName;
@@ -309,22 +311,26 @@ function(exports, Net, Assert, CoreNet, U) {
     return this;
   };
 
+  // Pass a message along, no fuss.
   Stream.prototype.bounce = function(mesg) {
     return this.channel.send(mesg);
   };
 
+  // Send a message. Make sure it has proper routing information.
   Stream.prototype.send = function(mesg, next) {
     Assert.ok(mesg.to, 'Missing `to` attribute.');
     Assert.ok(mesg.from, 'Missing `from` attribute.');
     return this.channel.send(mesg, next);
   };
 
+  // Reply to an original message.
   Stream.prototype.reply = function(orig, mesg, next) {
     if (orig)
       mesg.attr({ to: orig.from, from: this.identity(), id: orig.id });
     return this.send(mesg, next);
   };
 
+  // Direct message: assume it's from "me" to "you".
   Stream.prototype.dm = function(mesg, next) {
     return this.send(mesg.attr({ from: this.identity(), to: this.peer() }), next);
   };
