@@ -1,0 +1,17 @@
+#!/bin/sh
+
+die() {
+    echo $@
+    exit 1;
+}
+
+here=`dirname $0`
+
+iface=$1
+[ -z "$iface" ] && die "Specify an interface."
+
+addr=`ifconfig $iface | perl -ne 'print $1 if (/inet addr:(\S+)/);'`
+[ -z "$addr" ] && die "Can't find an IP address for '$iface'."
+
+sudo tcpdump -ni $iface | defjs -p $here/.. $here/log-traffic.js $addr
+

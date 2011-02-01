@@ -5,6 +5,7 @@
   "dependencies": {},
   "directories": { "lib": "./lib/relay-core" },
   "mappings": {
-    "iteratee": "file:../deps/iteratee.js"
+    "iteratee": "file:../deps/iteratee.js",
+    "iterators": "file:../deps/iterator.js"
   }
 }

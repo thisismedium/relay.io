@@ -2,12 +2,14 @@ var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapp
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
 var MultiplexedSocket     = require("relay-core/multiplex").MultiplexedSocket;
 var HttpStreamServer      = require("http-stream").HttpStreamServer;
-var net                   = require("net");         
+var net                   = require("net");
 var http                  = require("http");
-var path                  = require("path");        
-var static                = require("node-static"); 
+var path                  = require("path");
+var static                = require("node-static");
 var it                    = require("iterators");
 var events                = require("events");
+var servermedium          = require("servermedium");
+var settings              = servermedium.requireHostSettings();
 
 function ConnectionPool () {
   var connections = [];
@@ -25,7 +27,7 @@ function ConnectionPool () {
     connection.on("error", a1);
   };
   this.removeConnection = function (con) {
-    var connections = it.fold(function(a, b){ 
+    var connections = it.fold(function(a, b){
       if (b == con) return a;
       else a.append(b);
     }, [], connections);
@@ -98,8 +100,8 @@ exports.app = function () {
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
 
-  var port = process.argv[3] ? process.argv[3] : "8000";
-  var host = process.argv[2] ? process.argv[2] : "0.0.0.0";
+  var port = process.argv[3] ? process.argv[3] : settings.port;
+  var host = process.argv[2] ? process.argv[2] : settings.host;
 
   console.log(" + Relay Carrier listening at: " + host + ":" + port);
   httpServer.listen(port, host);

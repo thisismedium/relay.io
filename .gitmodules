@@ -13,3 +13,6 @@
 [submodule "deps/servermedium.js"]
 	path = deps/servermedium.js
 	url = git@github.com:thisismedium/servermedium.js.git
+[submodule "deps/node-tokyocabinet"]
+	path = deps/node-tokyocabinet
+	url = git://github.com/jamessanders/node-tokyocabinet.git

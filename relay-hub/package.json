@@ -5,5 +5,11 @@
   "author": "James Sanders",
   "directories": { "lib": "./lib/relay-hub" },
   "bin": {"relay-hub": "./bin/relay-hub"},
-  "engines": { "node": ">= 0.2.6" }
+  "engines": { "node": ">= 0.2.6" },
+  "mappings": {
+    "relay-core": "file:../relay-core",
+    "servermedium": "file:../deps/servermedium.js",
+    "tokyocabinet": "file:../deps/node-tokyocabinet",
+    "node-tokyocabinet": "tokyocabinet"
+  }
 }

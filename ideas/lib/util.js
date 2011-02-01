@@ -8,6 +8,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.readlines = readlines;
   exports.inherits = Sys.inherits;
   exports.EventEmitter = Events.EventEmitter;
+  exports.get = get;
   exports.extend = extend;
 
   
@@ -73,6 +74,13 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
   
   // ## Objects ##
+
+  function get(obj, key, ctor) {
+    var val = obj[key];
+    if (val === undefined && ctor !== undefined)
+      val = obj[key] = new ctor();
+    return val;
+  }
 
   function extend(target) {
     var key, obj;
