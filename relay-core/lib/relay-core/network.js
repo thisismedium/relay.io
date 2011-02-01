@@ -1,10 +1,10 @@
 require("./inherit");
 var events = require("events");
-var api = require("./api");
+var Api = require("./api");
 var MultiplexedSocket = require("./multiplex").MultiplexedSocket;
 
-var ApplicationSocketLink = function (raw_socket) {
-  
+var ApplicationSocketLink = function (raw_socket, api) {
+
   var self = this;
 
   var socket = new MultiplexedSocket(raw_socket);
@@ -12,13 +12,14 @@ var ApplicationSocketLink = function (raw_socket) {
   socket.on("end",   function () { self.emit("end") });
   socket.on("error", function (e) { self.emit("error",e) });
   socket.on("close", function () { self.emit("close") });
+  socket.on("connect", function() { self.emit("connect"); });
 
-  socket.on("channel", function (chan) { 
-    self.emit("channel", new ApplicationSocketLinkChannel(chan));
+  socket.on("channel", function (chan) {
+    self.emit("channel", new ApplicationSocketLinkChannel(chan, api));
   });
 
   this.newChannel = function () {
-    return (new ApplicationSocketLinkChannel(socket.newChannel()));
+    return (new ApplicationSocketLinkChannel(socket.newChannel(), api));
   };
 
   this.end = function () {
@@ -28,12 +29,14 @@ var ApplicationSocketLink = function (raw_socket) {
 };
 ApplicationSocketLink.inheritsFrom(events.EventEmitter);
 
-var ApplicationSocketLinkChannel = function (socketChan) {
+var ApplicationSocketLinkChannel = function (socketChan, api) {
 
   var self = this;
   var currentMid = 0;
   var callbacks = {};
   var messageHandler = null;
+
+  api = api || Api;
 
   function getNextMessageId () {
     currentMid += 1;
@@ -43,7 +46,8 @@ var ApplicationSocketLinkChannel = function (socketChan) {
   socketChan.on("end",   function () { self.emit("end") });
   socketChan.on("error", function (e) { self.emit("error",e)});
   socketChan.on("close", function () { self.emit("close")});
-    
+  socketChan.on("connect", function() { self.emit("connect"); });
+
   self.getSocket = function () { return socketChan };
 
   this.dispatch = function (mesg) {
@@ -60,7 +64,7 @@ var ApplicationSocketLinkChannel = function (socketChan) {
               replyMessage.from = api.RELAY_MASTER_ADDRESS;
               replyMessage.id   = mesg.id;
               replyMessage.to   = mesg.from;
-            } 
+            }
             self.send(replyMessage, callback);
           }
         });
@@ -79,7 +83,9 @@ var ApplicationSocketLinkChannel = function (socketChan) {
       }
     }
     if (json) {
-      self.dispatch(api.inspectMessage(json));
+      var mesg = api.inspectMessage(json);
+      self.emit('read', mesg, Buffer.byteLength(data));
+      self.dispatch(mesg);
     }
   });
 
@@ -97,21 +103,25 @@ var ApplicationSocketLinkChannel = function (socketChan) {
     throw "Write should not be used, use '.send' instead";
   }
 
-  this.send = function (json, callback) {
+  this.send = function (mesg, callback) {
     if (callback) {
-      if (!json.id) {
+      if (!mesg.id) {
         var mid = getNextMessageId();
       } else {
-        var mid = json.id;
+        var mid = mesg.id;
       }
       callbacks[mid] = callback;
-      json.id = mid;
+      mesg.id = mid;
     }
-    if (typeof json['dump'] == "function") json = json.dump();
-    
+
+    var json = (typeof mesg['dump'] == "function") ? mesg.dump() : mesg;
+
     var str = JSON.stringify(json);
     if (!str) throw "Object could not be serialized";
-    else socketChan.write(JSON.stringify(json));
+    else {
+      this.emit('write', mesg, Buffer.byteLength(str));
+      socketChan.write(str);
+    }
   };
 
   this.writeRaw = function (data) { socketChan.writeRaw(data) };

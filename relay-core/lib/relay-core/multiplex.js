@@ -45,10 +45,10 @@ function readNBytes (to_read) {
 /*
   new MultiplexedSocket -> (`a socket`, `a socket wrapper`)
 
-  // Methods: 
+  // Methods:
 
     .newChannel -> new SocketChannel
-    
+
   // Events:
 
      "channel" -> new SocketChannel
@@ -56,18 +56,17 @@ function readNBytes (to_read) {
 
   new SocketChannel -> (`a socket`)
 
-  // Methods: 
+  // Methods:
 
     .write -> `a string` -> null
     .multiWrite -> ([SocketChannel], `a string`) -> null
-    
+
   // Events:
 
-    "data"  -> `a string` 
+    "data"  -> `a string`
     "error" -> `an error`
     "close" -> null
     "end"   -> null
-
  */
 function MultiplexedSocket (stream) {
 
@@ -103,7 +102,7 @@ function MultiplexedSocket (stream) {
       mode_handlers[mode]();
     });
   };
-  
+
   // The client has sent an end signal
   function endHandler () {
     streamE.run(readNBytes(2), function (chan_to_end) {
@@ -124,7 +123,7 @@ function MultiplexedSocket (stream) {
         debug("message length is: " + mesg_length);
         streamE.run(readNBytes(number_of_channels * chan_id_width), function (chans_str) {
           var chans = [];
-          for (var i = 0; i < number_of_channels; i++) {            
+          for (var i = 0; i < number_of_channels; i++) {
             var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
             chans.push(parseN(4, slice));
           }
@@ -153,11 +152,17 @@ function MultiplexedSocket (stream) {
   modeReader();
 
   function emitOnAllChannels (signal) {
+    if (channels.length == 0)
+      return false;
+
+    var args = Array.prototype.slice.call(arguments,1);
     for (channel in channels) {
       if (channels.hasOwnProperty(channel)) {
-        channels[channel].emit(signal, Array.prototype.slice.call(arguments,1));
+        channels[channel].emit(signal, args);
       }
     }
+
+    return true;
   };
 
   function getNewChannelId () {
@@ -167,7 +172,7 @@ function MultiplexedSocket (stream) {
       }
     }
   };
-  
+
   this.newChannel = function () {
     var nid = getNewChannelId();
     var chan = new SocketChannel(nid);
@@ -176,21 +181,25 @@ function MultiplexedSocket (stream) {
   };
 
   function removeChannel (id) {
-    if (id in channels) 
+    if (id in channels)
       delete channels[id];
   };
 
-  stream.on("close",function(){ 
+  stream.on("close",function(){
     emitOnAllChannels ("close");
     self.emit("close");
   });
-  stream.on("end",function(){ 
+
+  stream.on("end",function(){
     emitOnAllChannels ("end");
     self.emit("end");
   });
-  stream.on("error",function (e){ 
-    emitOnAllChannels ("error",e);
-    self.emit("error", e);
+
+  stream.on("error",function (e){
+    // Node will throw an exception if an "error" event isn't
+    // handled. Unconditionally emitting an error event on self is
+    // hard to catch in client applications that just use channels.
+    emitOnAllChannels ("error", e) || self.emit("error", e);
   });
 
   stream.on("connect",function(){ self.emit("connect"); emitOnAllChannels ("connect") });
@@ -212,13 +221,13 @@ function MultiplexedSocket (stream) {
 
     this.getSocket = function () { return stream };
 
-    this.end = this.destroy = function () { 
+    this.end = this.destroy = function () {
       var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
       doWrite(buf);
       // removeChannel(id);
     };
 
-    this.write = function (data) { 
+    this.write = function (data) {
       self._write([this], data)
     }
 
@@ -243,7 +252,7 @@ function MultiplexedSocket (stream) {
       bufD.copy(bufA, bufB.length, 0);
 
       var bufC = new Buffer(json);
-      bufC.copy(bufA,bufB.length + bufD.length,0);    
+      bufC.copy(bufA,bufB.length + bufD.length,0);
       doWrite(bufA);
     }
 
@@ -252,9 +261,9 @@ function MultiplexedSocket (stream) {
         try {
           stream.write(buf);
         } catch (e) {
-          this.emit("error", e)
+          this.emit("error", e);
         }
-      }      
+      }
     }
 
   };

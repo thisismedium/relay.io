@@ -3,11 +3,12 @@
   "description": "",
   "version": "0.0.1",
   "author": "James Sanders",
-  "main": "./server.js",
   "directories": { "lib": "./lib/relay-station" },
   "bin": {"relay-station": "./bin/relay-station"},
   "mappings": {
     "relay-core": "file:../relay-core",
-    "servermedium": "file:../deps/servermedium.js"
+    "relay-log": "file:../relay-log",
+    "servermedium": "file:../deps/servermedium.js",
+    "iterators": "file:../deps/iterator.js"
   }
 }

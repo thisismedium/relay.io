@@ -1,17 +1,17 @@
 // # Log Traffic #
 //
-// This example demonstrates how a Log and Top are used.
+// This example demonstrates how a Log is used.
 //
 // An associated shell script pipes a `tcpdump` into this script's
 // standard input. An EventEmitter and `U.readlines(stdin)` convert
-// the `tcpdump` output into a simulated JSON stream (see
-// relay/stream.js).
+// the `tcpdump` output to simulate a stream.
 //
 // The log collects individual events into a Stats object for the
-// duration of its hearbeat. When the Top receives a stats object, it
-// updates its aggregate and emits an `update` event.
+// duration of its hearbeat. At each heartbeat tick, and the stats are
+// folded into an aggregate and an `update` event is emitted.
 
-define(['relay/log', 'relay/util'], function(Log, U) {
+define(['relay-log/log', 'relay-log/archive', 'relay-log/util'],
+function(Log, Archive, U) {
 
   var addr = process.argv[2],
       stream = new U.EventEmitter();
@@ -30,7 +30,7 @@ define(['relay/log', 'relay/util'], function(Log, U) {
     this.log(ev.type + '-count', 1, ev.data.to);
   });
 
-  log.start();
+  log.publishUpdates('traffic@localhost', 8160).start();
 
   
   // ## Not Important ##

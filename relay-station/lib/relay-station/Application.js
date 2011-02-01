@@ -3,12 +3,12 @@ var groupChannelsBySocket = require("relay-core/multiplex").groupChannelsBySocke
 var Key                   = require("./Key").Key;
 var it                    = require("iterators");
 // Client ///////////////////////////////////
-  
-/* 
+
+/*
    a Client is a user of the application, when a client initializes a
    session it is given a client-id...
 */
-  
+
 function Client (client_id, stream) {
 
   var perms = 0;
@@ -86,7 +86,7 @@ function Route (name, mask, acl) {
     }
     return cmask;
   };
-  
+
   this.canClientSubscribe = function (client) {
     if (client.address == api.RELAY_MASTER_ADDRESS) return 1;
     var cmask = this.mergeClientMask(client);
@@ -107,13 +107,13 @@ function Route (name, mask, acl) {
         }
       }
       subscribers.push(client);
-      
+
       function remove () {
         self.removeSubscriber(client);
-        self.send(new api.ClientExit(client.getClientId(), self.address), 
+        self.send(new api.ClientExit(client.getClientId(), self.address),
                   new Client(api.RELAY_MASTER_ADDRESS));
       };
-      
+
       client.getStream().on("close", remove);
       client.getStream().on("end",   remove);
       client.getStream().on("error", remove);
@@ -225,14 +225,14 @@ function Application (data) {
 
       // Inform the client about their client_id.
       resp.reply(new api.Welcome(client.getClientId()));
-       
+
     }
 
     // Client said "Join", the client wants to join a channel to listen for updates
 
     this.Join = function (request, resp) {
       var addr = request.to;
-      // Check that the client has read permissions and the 
+      // Check that the client has read permissions and the
       // requested route is a #channel (as opposed to a user)
       if (addr.match("^#[a-zA-Z1-9]*$")) {
         var staticChan = self.getChannelByAddress(addr);
@@ -249,9 +249,9 @@ function Application (data) {
           if (!route.addSubscriber(client)) {
             resp.reply(new api.PermissionDeniedError());
           } else {
-            // If the client is able to join the channel (aka route) 
+            // If the client is able to join the channel (aka route)
             // then inform everyone on that channel that they have entered.
-            route.send(new api.ClientEnter(client.getClientId(), addr), master);       
+            route.send(new api.ClientEnter(client.getClientId(), addr), master);
             // Inform the client of a successful "Join".
             resp.reply(new api.Okay());
           }
@@ -287,7 +287,7 @@ function Application (data) {
     this.Message = function (request, resp) {
       // Check that the client can write to the requested channel
       var route = getRouteByAddress(request.to);
-      if (route) { 
+      if (route) {
         // Send the message to the proper channels.
         if (route.send(request, client)) {
         // Inform the client that their message has been delivered.
