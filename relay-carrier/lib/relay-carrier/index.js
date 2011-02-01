@@ -44,7 +44,17 @@ exports.app = function () {
 
   var pool = new ConnectionPool();
   pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  //pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");

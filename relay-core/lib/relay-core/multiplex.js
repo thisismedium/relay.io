@@ -80,10 +80,10 @@ function MultiplexedSocket (stream) {
   var channels = {};
   var mode_header_width = 1;
   var chan_list_header_width = 2;
-  var chan_id_width   = 2;
+  var chan_id_width   = 4;
   var mesg_length_header_width = 2;
 
-  var max_channel_id = 1 << (8 * chan_id_width);
+  var max_channel_id = 4294967295;
   var header_size  = chan_list_header_width + mesg_length_header_width;
 
 
@@ -126,7 +126,7 @@ function MultiplexedSocket (stream) {
           var chans = [];
           for (var i = 0; i < number_of_channels; i++) {            
             var slice = chans_str.slice(i*chan_id_width, (i*chan_id_width) + chan_id_width);
-            chans.push(parseN(2, slice));
+            chans.push(parseN(4, slice));
           }
           debug("Channels are: " + chans);
           streamE.run(readNBytes(mesg_length), function(mesg) {
@@ -238,7 +238,7 @@ function MultiplexedSocket (stream) {
 
       var bufD = new Buffer(chans.length * chan_id_width, 'binary');
       for (var i = 0; i < chans.length; i++) {
-        (new Buffer(pack('n', chans[i].getId()), 'binary')).copy(bufD, i * chan_id_width, 0)
+        (new Buffer(pack('N', chans[i].getId()), 'binary')).copy(bufD, i * chan_id_width, 0)
       };
       bufD.copy(bufA, bufB.length, 0);
 
@@ -284,3 +284,5 @@ exports.groupChannelsBySocket = function groupChannelsBySocket (channels) {
   }
   return grouped
 };
+
+
