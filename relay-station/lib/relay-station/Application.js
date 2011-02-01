@@ -202,7 +202,7 @@ function Application (data) {
 
     // Client said "Hello", they are brand new to the world...
     this.Hello = function (request, resp) {
-
+     
       // If the request includes keys setup new permissions for the user.
       if (request.body.keys) {
         request.body.keys.forEach(function(key){

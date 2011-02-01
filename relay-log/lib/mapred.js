@@ -99,12 +99,12 @@ define(['exports', './util'], function(exports, U) {
   ReduceStream.prototype.add = function(stream, ctx) {
     var self = this;
 
-    function read(obj, len) {
-      self.push(new StreamEvent('read',  obj, len), ctx);
+    function read(obj, len, count) {
+      self.push(new StreamEvent(self.readEv,  obj, len, count), ctx);
     }
 
-    function write(obj, len) {
-      self.push(new StreamEvent('write', obj, len), ctx);
+    function write(obj, len, count) {
+      self.push(new StreamEvent(self.writeEv, obj, len, count), ctx);
     }
 
     function close() {
@@ -125,10 +125,11 @@ define(['exports', './util'], function(exports, U) {
   
   // ## Event ##
 
-  function StreamEvent(type, data, nbytes) {
-    this.type = type;
-    this.data = data;
+  function StreamEvent(type, data, nbytes, count) {
+    this.type   = type;
+    this.data   = data;
     this.nbytes = nbytes;
+    this.count  = count ? count : 1;
   }
 
   StreamEvent.prototype.toString = function() {
@@ -142,12 +143,12 @@ define(['exports', './util'], function(exports, U) {
   function Score(mapred, averages) {
     U.EventEmitter.call(this);
 
-    this.last = null;
-    this.total = null;
+    this.last    = null;
+    this.total   = null;
     this.average = {};
 
-    this._zero = null;
-    this._add = null;
+    this._zero   = null;
+    this._add    = null;
 
     var self = this;
 

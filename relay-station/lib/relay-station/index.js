@@ -34,8 +34,9 @@ var RelayStation = function () {
   var identity, logger;
 
   function logChannels(ev) {
-    this.log(ev.type + '-bytes', ev.nbytes, ev.data.to);
-    this.log(ev.type + '-count', 1, ev.data.to);
+    var recv = ev.type == 'out' ? ev.data.to : ev.data.to;
+    this.log(ev.type + '-bytes', ev.nbytes * ev.count, recv);
+    this.log(ev.type + '-count', ev.count, recv);
   }
 
   // This is the object that all of the request are initially handled by
@@ -54,15 +55,17 @@ var RelayStation = function () {
           // RelayStation so all messages are passed directly to the application)
           stream.bindMessageHandler(new app.MessageHandler());
           stream.dispatch(request);
+          
+          logger
+            .bind(stream, app.getAddress())
+            .map(logChannels)
+            .inject({ appId: request.to, kind: 'hello', count: 1 });
+
         }
       });
 
       // Bind a logger to this stream. Inject a not about the hello
       // request since it wouldn't be tracked otherwise.
-      logger
-        .bind(stream, request.to)
-        .map(logChannels)
-        .inject({ appId: request.to, kind: 'hello', count: 1 });
     };
 
     this.InvalidRequest = function (request) {

@@ -42,7 +42,7 @@ function(exports, U, Mr, Api) {
 
     var self = this;
 
-    (this.engine = new Mr.ReduceStream('read', 'write'))
+    (this.engine = new Mr.ReduceStream('in', 'out'))
       .seed(function() {
         return new Stats();
       })

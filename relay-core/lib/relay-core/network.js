@@ -44,7 +44,7 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
   };
 
   socketChan.on("end",   function () { self.emit("end") });
-  socketChan.on("error", function (e) { self.emit("error",e)});
+  socketChan.on("error", function (e) { console.log(e); self.emit("error",e)});
   socketChan.on("close", function () { self.emit("close")});
   socketChan.on("connect", function() { self.emit("connect"); });
 
@@ -84,7 +84,7 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
     }
     if (json) {
       var mesg = api.inspectMessage(json);
-      self.emit('read', mesg, Buffer.byteLength(data));
+      self.emit('in', mesg, Buffer.byteLength(data));
       self.dispatch(mesg);
     }
   });
@@ -119,7 +119,7 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
     var str = JSON.stringify(json);
     if (!str) throw "Object could not be serialized";
     else {
-      this.emit('write', mesg, Buffer.byteLength(str));
+      this.emit('out', json, Buffer.byteLength(str), 1);
       socketChan.write(str);
     }
   };
@@ -128,7 +128,9 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
 
   this.multiWrite = function (chans, obj) {
     if (typeof(obj.dump) == "function") obj = obj.dump();
-    socketChan.multiWrite(chans, JSON.stringify(obj));
+    var str = JSON.stringify(obj);
+    this.emit('out', obj, Buffer.byteLength(str), chans.length);
+    socketChan.multiWrite(chans, str);
   };
 };
 ApplicationSocketLinkChannel.inheritsFrom(events.EventEmitter);
