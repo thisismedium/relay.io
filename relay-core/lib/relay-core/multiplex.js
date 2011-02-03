@@ -33,13 +33,13 @@ function readNBytes (to_read) {
         var leftover = chunk.data().slice(i,chunk.data().length);
         return iter.Iteratee.Enough(buffer, leftover.length > 0 ? leftover : undefined);
       } else {
-        return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));
+        return iter.Iteratee.Partial(aux.partial(bytes_read, buffer));
       }
     } else {
-      return iter.Iteratee.Partial(aux.curry(bytes_read, buffer));;
+      return iter.Iteratee.Partial(aux.partial(bytes_read, buffer));;
     }
   };
-  return iter.Iteratee.Partial(aux.curry(0, new Buffer(to_read)));
+  return iter.Iteratee.Partial(aux.partial(0, new Buffer(to_read)));
 };
 
 /*

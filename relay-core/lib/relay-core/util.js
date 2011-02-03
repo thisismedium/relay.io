@@ -23,6 +23,28 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.hostname = hostname;
   exports.Host = Host;
 
+  Events.EventEmitter.once = function (event, callback) {
+    var self = this;
+    this.on(event, callback);
+    var destroy = function () {
+      self.removeEvent(event, callback);
+      self.removeEvent(event, this);
+    }
+    this.on(event,destroy);
+    return this;
+  }
+
+  if (typeof(Function.prototype.partial) == "undefined") {
+    Function.prototype.partial = function (){
+      var that = this;
+      var thoseArgs = Array.prototype.slice.call(arguments, 0);
+      return function(){
+        var comArgs = thoseArgs.concat(Array.prototype.slice.call(arguments, 0));
+        return that.apply(this,comArgs);
+      };
+    };
+  }
+
   
   // ## Helpers ##
 

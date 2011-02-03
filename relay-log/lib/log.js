@@ -14,7 +14,7 @@
 //   count   int
 // );
 
-define(['exports', './util', './mapred', './api'],
+define(['exports', 'relay-core/util', './mapred', './api'],
 function(exports, U, Mr, Api) {
 
   exports.Log = Log;

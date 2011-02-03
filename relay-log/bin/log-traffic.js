@@ -10,7 +10,7 @@
 // duration of its hearbeat. At each heartbeat tick, and the stats are
 // folded into an aggregate and an `update` event is emitted.
 
-define(['relay-log/log', 'relay-log/archive', 'relay-log/util'],
+define(['relay-log/log', 'relay-log/archive', 'relay-core/util'],
 function(Log, Archive, U) {
 
   var addr = process.argv[2],
