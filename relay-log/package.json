@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "mappings": {
     "relay-core": "file:../relay-core",
-    "servermedium": "file:../deps/servermedium.js"
+    "servermedium": "file:../deps/servermedium.js",
+    "pg": "https://github.com/brianc/node-postgres/zipball/v0.2.5"
   }
 }
