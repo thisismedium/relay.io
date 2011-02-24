@@ -1,4 +1,4 @@
-define(['exports', './util'], function(exports, U) {
+define(['exports', 'relay-core/util'], function(exports, U) {
 
   exports.MapRed = MapRed;
   exports.ReduceStream = ReduceStream;

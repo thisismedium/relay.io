@@ -318,8 +318,9 @@ function(exports, Net, Assert, CoreNet, U) {
 
   // Send a message. Make sure it has proper routing information.
   Stream.prototype.send = function(mesg, next) {
-    Assert.ok(mesg.to, 'Missing `to` attribute.');
-    Assert.ok(mesg.from, 'Missing `from` attribute.');
+    // TODO: Add thse assertions back
+    //Assert.ok(mesg.to, 'Missing `to` attribute.');
+    //Assert.ok(mesg.from, 'Missing `from` attribute.');
     return this.channel.send(mesg, next);
   };
 
@@ -342,15 +343,21 @@ function(exports, Net, Assert, CoreNet, U) {
   // Events.
 
   function emitMessages(api, from, into) {
-    var handler = {},
-        emit = messageEmitter(into);
-
-    for (var type in api)
-      handler[type] = emit;
-
-    handler.Error = errorHandler(into);
-
-    from.bindMessageHandler(handler);
+    var handler = {};
+    var messageEmit = messageEmitter(into);
+    var errorEmit   = errorHandler(into);
+    from.on("data", function (mesg) {
+      var response = {
+        reply: function () { 
+          into.reply.partial(mesg).apply(into, arguments) 
+        }
+      }
+      if (mesg.type == "Error") {
+        errorEmit(mesg, response);
+      } else {
+        messageEmit(mesg, response);
+      }
+    });
     return from;
   }
 

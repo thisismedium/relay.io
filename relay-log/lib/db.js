@@ -2,7 +2,7 @@
 //
 // Interface to Log database.
 
-define(['exports', './sql', './util'], function(exports, Sql, U) {
+define(['exports', './sql', 'relay-core/util'], function(exports, Sql, U) {
 
   exports.LogDB = LogDB;
   exports.Router = Router;

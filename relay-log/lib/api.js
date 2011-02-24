@@ -25,7 +25,7 @@
 //     A: OK
 
 
-define(['exports', './protocol', './util'],
+define(['exports', 'relay-core/protocol', 'relay-core/util'],
 function(exports, Proto) {
 
   var Api = this.exports = Proto.protocol('Archive')
