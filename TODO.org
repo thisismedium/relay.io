@@ -1,0 +1,9 @@
+* Relay.io backend TODO items
+
+** TODO Setup current relay.io on dev and live servers
+** TODO Build test cases and benchmarks
+** TODO Working on more complete error reporting and service recovery
+
+* Future ideas
+
+** Integrate Avro
