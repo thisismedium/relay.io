@@ -12,6 +12,8 @@ var servermedium          = require("servermedium");
 var settings              = servermedium.requireHostSettings();
 var U                     = require("relay-core/util");
 
+servermedium.reportErrors()
+
 var args = U.withProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")

@@ -12,6 +12,8 @@ var net = require("net");
 
 var U = require("relay-core/util");
 
+serverMedium.reportErrors()
+
 var args = U.withProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
