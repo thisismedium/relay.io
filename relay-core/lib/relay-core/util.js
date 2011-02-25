@@ -24,7 +24,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.Host = Host;
 
     
-  exports.loadArguments = loadArguments;
+  exports.withProcessArguments = withProcessArguments;
   exports.isFlag = isFlag;
 
   Events.EventEmitter.once = function (event, callback) {
@@ -253,7 +253,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   var it = require("iterators");
 
   function isFlag (f) { return (f instanceof Flag) }
-  function loadArguments () { return new Arguments(process.argv) }
+  function withProcessArguments () { return new Arguments(process.argv) }
 
   function Flag (x) {
     this.string = x;
@@ -266,6 +266,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   function Arguments(argv) {
 
     var flagReaders = {};
+    var aliases = {};
 
     function expandArgs (args) {
       return args.reduce(function(a, b) {
@@ -281,31 +282,58 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
       },[]);
     }
 
-    this.args = new it.Iterator(expandArgs(argv));
+    this.args = it.Iterator(expandArgs(argv));
+
+    this.alias = function (k, v) {
+      aliases[k] = v;
+      return this;
+    };
 
     this.next = function () {
       return this.args.next();
     }
 
-    this.withFlag = function (flag, fn) {
+    this.nextArgument = function () {
+      var next = this.args.next();
+      if (!isFlag(next)) {
+        return next.string;
+      } else {
+        // rewind one
+        this.args.back();
+        return null;
+      }
+    }
+
+    this.nextFlag = function () {
+      var next = this.args.next();
+      if (isFlag(next)) {
+        return next.string;
+      } else {
+        this.args.back();
+        return null
+      }
+    }
+
+    this.onFlag = function (flag, fn) {
       flagReaders[flag] = fn ;
       return this;
     }
 
-    this.read = function (obj) {
+    this.parse = function (obj) {
       var self = this;
       var psrd = it.fold(function(a, b) {
         if (b instanceof Flag) {
-          var fr = flagReaders[b.string]
-            if (fr) {
-              return [fr.call(self, a[0]), a[1]]
-            } else {
-              throw (new Error("Invalid flag"));
-            }
+          var fl = aliases[b.string] ? aliases[b.string] : b.string
+          var fr = flagReaders[fl];
+          if (fr) {
+            return [fr.call(self, a[0]), a[1]];
+          } else {
+            throw (new Error("Invalid flag"));
+          }
         } else {
           return [a[0], a[1].concat( [b.string])];
         }
-      }, [obj,[]], this);
+      }, [obj ? obj : {},[]], this);
       return { "flags": psrd[0], 
                "arguments": psrd[1] }
     }

@@ -4,13 +4,18 @@ define(["exports","servermedium", "./ApplicationDatabase", "net", "relay-core/ap
 var settings = serverMedium.requireHostSettings();
 
 
-var args = U.loadArguments()
-  .withFlag("-u", function (obj) {
-    obj.user = this.next().string;
+var args = U.withProcessArguments()
+  .alias("--user","-u")
+  .alias("--verbose", "-v")
+  .onFlag("-u", function (obj) {
+    obj.user = this.nextArgument();
     return obj;
   })
-  .read({});
-
+  .onFlag("-v", function (obj) {
+    obj.verbose = true;
+    return obj
+  })
+  .parse();
 
 function Hub () {
   var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
