@@ -76,8 +76,8 @@ process.on('uncaughtException', function (err) {
 ////////////////////////////////////////////////////////////////////////
 // Test Data
 ////////////////////////////////////////////////////////////////////////
-/*
-var apDB = new ADB.ApplicationDatabase(settings.application_database_path);
+var api = CoreApi;
+var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
 var test  = new api.Application();
 test.setName("Test App");
 test.setAddress("test");
@@ -89,6 +89,6 @@ acl.addRole("812af3d1-288d-4469-8160-8cbaa4774539", api.PERM_READ);
 test.updateChannel("#test", acl, 0);
 appDB.putApplicationData(test, function() {});
 
-*/
+
 
 });

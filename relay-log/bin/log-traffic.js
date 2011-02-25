@@ -47,9 +47,9 @@ function(Log, Archive, U) {
         name = null;
 
     if (probe && probe[1] == addr)
-      name = 'write';
+      name = 'out';
     else if (probe && probe[2] == addr)
-      name = 'read';
+      name = 'in';
 
     if (name)
       stream.emit(name, { from: probe[1], to: probe[2] }, parseInt(probe[3]));
@@ -59,13 +59,13 @@ function(Log, Archive, U) {
     var total = log.total(),
         stats = total.data,
         count = stats.count(),
-        avgIn = Math.round(count['read-bytes'] / count['read-count']),
-        avgOut = Math.round(count['write-bytes'] / count['write-count']);
+        avgIn = Math.round(count['in-bytes'] / count['in-count']),
+        avgOut = Math.round(count['out-bytes'] / count['out-count']);
 
     console.log('\n## Summary ##');
     console.log('');
-    console.log('Bytes I/O:     %d/%d', count['read-bytes'], count['write-bytes']);
-    console.log('Messages I/O:  %d/%d', count['read-count'], count['write-count']);
+    console.log('Bytes I/O:     %d/%d', count['in-bytes'], count['out-bytes']);
+    console.log('Messages I/O:  %d/%d', count['in-count'], count['out-count']);
     console.log('Avg Bytes I/O: %d/%d', avgIn, avgOut);
     console.log('Time:          %d seconds', total.delta() / 1000);
     console.log('');
