@@ -10,9 +10,29 @@ var Log = require("relay-log/log").Log;
 var api = require("relay-core/api");
 var net = require("net");
 
+var U = require("relay-core/util");
+
+serverMedium.reportErrors()
+
+var args = U.withProcessArguments()
+  .alias("--user","-u")
+  .alias("--verbose", "-v")
+  .onFlag("-u", function (obj) {
+    obj.user = this.nextArgument();
+    return obj;
+  })
+  .onFlag("-v", function (obj) {
+    obj.verbose = true;
+    return obj
+  })
+  .parse();
+
+
 var RelayStation = function () {
 
-  var hubConnection = (new ApplicationSocketLink(net.createConnection(7777, "localhost"))).newChannel();
+  console.log("Connecting to hub %s:%s", settings.hub_host, settings.hub_port)
+    
+  var hubConnection = (new ApplicationSocketLink(net.createConnection(settings.hub_port, settings.hub_host))).newChannel();
   var apps = {};
 
   function getApplication (name, callback) {
@@ -88,7 +108,7 @@ var RelayStation = function () {
     identity = 'station-' + port + '@' + host;
     logger = new Log().publishUpdates(identity, settings.archive);
 
-    hubConnection.send(api.RegisterStation("test"), function(data) {
+      hubConnection.send(api.RegisterStation(settings.station_key), function(data) {
       if (data.type == "Error") {
         console.log(" - Could not establish a connection with the hub");
       } else {
@@ -102,14 +122,20 @@ var RelayStation = function () {
 };
 
 exports.app = function () {
-  var port = process.argv[3] ? process.argv[3] : 8124;
-  var host = process.argv[2] ? process.argv[2] : "localhost";
+
+  var port = args.arguments[3] ? args.arguments[3] : 4011;
+  var host = args.arguments[2] ? args.arguments[2] : "localhost";
+
   console.log("Starting RelayStation listening on port: " + port + " host: " + host);
   (new RelayStation()).listen(port, host);
+  if (args.flags.user) {
+      console.log("Dropping to user: %s", args.flags.user)
+    try {
+      process.setuid(args.flags.user);
+    } catch (err) {
+      throw new Error("Could not set user.");
+    }
+  }
 }
 
-process.on('uncaughtException', function (err) {
-  console.log(err.stack);
-  console.log('Caught exception: ' + err);
-});
 
