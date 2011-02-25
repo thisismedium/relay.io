@@ -39,8 +39,12 @@ function MessageHandler () {
 
 exports.app = function () {
   server = Api.createServer("the-hub", (new MessageHandler).handle)
-  console.log("RelayHub: starting on port 7777");
-  server.listen(7777, "0.0.0.0");
+
+  var host = (process.argv[2]) ? process.argv[2] : "0.0.0.0"
+  var port = (process.argv[3]) ? parseInt(process.argv[3], 10) : 4001
+
+  console.log("RelayHub: starting on  %s:%s", host, port);
+  server.listen(port, host);
 };
 
 process.on('uncaughtException', function (err) {
