@@ -10,6 +10,20 @@ var it                    = require("iterators");
 var events                = require("events");
 var servermedium          = require("servermedium");
 var settings              = servermedium.requireHostSettings();
+var U                     = require("relay-core/util");
+
+var args = U.withProcessArguments()
+  .alias("--user","-u")
+  .alias("--verbose", "-v")
+  .onFlag("-u", function (obj) {
+    obj.user = this.nextArgument();
+    return obj;
+  })
+  .onFlag("-v", function (obj) {
+    obj.verbose = true;
+    return obj
+  })
+  .parse();
 
 function ConnectionPool () {
   var connections = [];
@@ -45,18 +59,12 @@ ConnectionPool.prototype = events.EventEmitter.prototype;
 exports.app = function () {
 
   var pool = new ConnectionPool();
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(8124, "localhost")));
+
+  // TODO: These should not be hard coded in here...
+  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");
@@ -100,11 +108,21 @@ exports.app = function () {
   httpStreamServer.on("connection", proxy);
   wsServer.on("connection", proxy);
 
-  var port = process.argv[3] ? process.argv[3] : settings.port;
-  var host = process.argv[2] ? process.argv[2] : settings.host;
+  var port = args.arguments[3] ? args.arguments[3] : settings.port;
+  var host = args.arguments[2] ? args.arguments[2] : settings.host;
 
   console.log(" + Relay Carrier listening at: " + host + ":" + port);
   httpServer.listen(port, host);
+
+  if (args.flags.user) {
+      console.log("Dropping to user: %s", args.flags.user)
+    try {
+      process.setuid(args.flags.user);
+    } catch (err) {
+      throw new Error("Could not set user.");
+    }
+  }
+
 
 }
 
