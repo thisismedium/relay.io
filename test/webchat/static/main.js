@@ -1,4 +1,4 @@
-var RELAY_CARRIER_HOST = [["localhost", 8000]]
+var RELAY_CARRIER_HOST = [["api.dev.relay.io", 80]]
 ////////////////////////////////////////////////////////////////////////
 
 var command_history = [];
