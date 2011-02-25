@@ -59,6 +59,7 @@ exports.app = function () {
   console.log("RelayHub: starting on  %s:%s", host, port);
   server.listen(port, host);
   if (args.flags.user) {
+      console.log("Dropping to user: %s", args.flags.user)
     try {
       process.setuid(args.flags.user);
     } catch (err) {
@@ -76,6 +77,7 @@ process.on('uncaughtException', function (err) {
 ////////////////////////////////////////////////////////////////////////
 // Test Data
 ////////////////////////////////////////////////////////////////////////
+
 var api = CoreApi;
 var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
 var test  = new api.Application();
@@ -88,7 +90,5 @@ var acl = test.createACL();
 acl.addRole("812af3d1-288d-4469-8160-8cbaa4774539", api.PERM_READ);
 test.updateChannel("#test", acl, 0);
 appDB.putApplicationData(test, function() {});
-
-
 
 });
