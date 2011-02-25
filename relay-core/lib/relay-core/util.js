@@ -23,6 +23,10 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.hostname = hostname;
   exports.Host = Host;
 
+    
+  exports.loadArguments = loadArguments;
+  exports.isFlag = isFlag;
+
   Events.EventEmitter.once = function (event, callback) {
     var self = this;
     this.on(event, callback);
@@ -242,4 +246,70 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     return this.host + this.port;
   };
 
+
+
+  // ## Command line arguments ##
+
+  var it = require("iterators");
+
+  function isFlag (f) { return (f instanceof Flag) }
+  function loadArguments () { return new Arguments(process.argv) }
+
+  function Flag (x) {
+    this.string = x;
+  }
+
+  function Arg (x) {
+    this.string = x;
+  }
+
+  function Arguments(argv) {
+
+    var flagReaders = {};
+
+    function expandArgs (args) {
+      return args.reduce(function(a, b) {
+        if (b.slice(0,2) == "--") {
+          return a.concat(new Flag(b));
+        } else if (b[0] == "-" && b.slice(0,2) != "--") {
+          return a.concat(b.slice(1).split("").map(function (x) {
+            return new Flag("-" + x);
+          }));
+        } else {
+          return a.concat(new Arg(b));
+        }
+      },[]);
+    }
+
+    this.args = new it.Iterator(expandArgs(argv));
+
+    this.next = function () {
+      return this.args.next();
+    }
+
+    this.withFlag = function (flag, fn) {
+      flagReaders[flag] = fn ;
+      return this;
+    }
+
+    this.read = function (obj) {
+      var self = this;
+      var psrd = it.fold(function(a, b) {
+        if (b instanceof Flag) {
+          var fr = flagReaders[b.string]
+            if (fr) {
+              return [fr.call(self, a[0]), a[1]]
+            } else {
+              throw (new Error("Invalid flag"));
+            }
+        } else {
+          return [a[0], a[1].concat( [b.string])];
+        }
+      }, [obj,[]], this);
+      return { "flags": psrd[0], 
+               "arguments": psrd[1] }
+    }
+  }
+
 });
+

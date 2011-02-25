@@ -1,4 +1,4 @@
 #!/bin/sh
 
 pkg=`dirname $0`/..
-exec defjs -p $pkg $pkg/server.js
+exec defjs -p $pkg $pkg/server.js $@

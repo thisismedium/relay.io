@@ -1,7 +1,16 @@
-define(["exports","servermedium", "./ApplicationDatabase", "net", "relay-core/api","./api"],
-       function (exports, serverMedium, ADB, net, CoreApi, Api) {
+define(["exports","servermedium", "./ApplicationDatabase", "net", "relay-core/api","./api", "relay-core/util"],
+       function (exports, serverMedium, ADB, net, CoreApi, Api, U) {
 
 var settings = serverMedium.requireHostSettings();
+
+
+var args = U.loadArguments()
+  .withFlag("-u", function (obj) {
+    obj.user = this.next().string;
+    return obj;
+  })
+  .read({});
+
 
 function Hub () {
   var appDB = new ADB.ApplicationDatabase(settings.application_database_path);
@@ -26,7 +35,6 @@ function MessageHandler () {
     stream
     .on("RegisterStation",  function (mesg, resp) {
       stream.removeAllListeners("RegisterStation");
-      console.log("Registering a station");
       if (mesg.body().key == settings.station_key) {
         hub.handle(stream);
         resp.reply(new Api.Okay());
@@ -40,11 +48,18 @@ function MessageHandler () {
 exports.app = function () {
   server = Api.createServer("the-hub", (new MessageHandler).handle)
 
-  var host = (process.argv[2]) ? process.argv[2] : "0.0.0.0"
-  var port = (process.argv[3]) ? parseInt(process.argv[3], 10) : 4001
+  var host = (args.arguments[2]) ? args.arguments[2] : "0.0.0.0"
+  var port = (args.arguments[3]) ? parseInt(args.arguments[3], 10) : 4001
 
   console.log("RelayHub: starting on  %s:%s", host, port);
   server.listen(port, host);
+  if (args.flags.user) {
+    try {
+      process.setuid(args.flags.user);
+    } catch (err) {
+      throw new Error("Could not set user.");
+    }
+  }
 };
 
 process.on('uncaughtException', function (err) {
