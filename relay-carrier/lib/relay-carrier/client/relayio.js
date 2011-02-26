@@ -160,7 +160,7 @@ var relayio = {};
       function aux() {
         readers += 1;
         backend.get({ 
-          "multipart": true,
+          "multipart": false,
           "url": "http://"+hostname+":"+port+"/stream/read/"+session_id, 
           "success": function(data) {
             failures = 0;

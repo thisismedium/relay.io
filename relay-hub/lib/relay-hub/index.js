@@ -3,7 +3,6 @@ define(["exports","servermedium", "./ApplicationDatabase", "net", "relay-core/ap
 
 var settings = serverMedium.requireHostSettings();
 
-
 var args = U.withProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
@@ -30,6 +29,8 @@ function Hub () {
           resp.reply(mesg);
         }
       });
+    }).on("error", function() {
+	return false;
     });
   }
 };
@@ -46,6 +47,8 @@ function MessageHandler () {
       } else {
         resp.reply(Api.PermissionDeniedError());
       }
+    }).on("error", function () {
+	return false;
     })
   };
 };
@@ -57,7 +60,9 @@ exports.app = function () {
   var port = (args.arguments[3]) ? parseInt(args.arguments[3], 10) : 4001
 
   console.log("RelayHub: starting on  %s:%s", host, port);
+
   server.listen(port, host);
+
   if (args.flags.user) {
       console.log("Dropping to user: %s", args.flags.user)
     try {
@@ -66,7 +71,10 @@ exports.app = function () {
       throw new Error("Could not set user.");
     }
   }
+
 };
+
+
 
 ////////////////////////////////////////////////////////////////////////
 // Test Data

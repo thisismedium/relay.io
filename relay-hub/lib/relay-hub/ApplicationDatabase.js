@@ -10,7 +10,7 @@ var ApplicationDatabase = function ApplicationDatabase (path) {
   this.db = null;
 
   function withDB (callback) {
-    if (!self.db) {
+    if (!self.db || !self.db.db) {
       self.db = new tc.HashDB();
       self.db.open(path, "a+", function(err) {
         if (err) throw (err);
@@ -24,13 +24,16 @@ var ApplicationDatabase = function ApplicationDatabase (path) {
   this.getApplicationData = function getApplicationData (appId, callback) {
     withDB(function (err, db) {
       if (err) throw err;
+        console.log(db);
       db.get(appId, function(err, data) {
         if (err) {
           callback(err, null);
         } else {
           callback(err, new api.Application(JSON.parse(data)));
         }
-        db.close(function(){})
+        db.close(function(){
+	    return false;
+	})
       });
     });
   };

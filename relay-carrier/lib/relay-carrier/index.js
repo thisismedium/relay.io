@@ -41,6 +41,7 @@ function ConnectionPool () {
     connection.on("end", a1);
     connection.on("close", a1);
     connection.on("error", a1);
+    return this;
   };
   this.removeConnection = function (con) {
     var connections = it.fold(function(a, b){
@@ -63,10 +64,11 @@ exports.app = function () {
   var pool = new ConnectionPool();
 
   // TODO: These should not be hard coded in here...
-  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
-  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
+  pool
+	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
+	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
+	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
+	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");
@@ -80,7 +82,10 @@ exports.app = function () {
 
   function simpleServer (request, response) {
     request.addListener('end', function () {
-      file.serve(request, response).on("error", function(e) { console.log("ERROR::") ; console.log(e) });
+      file.serve(request, response).on("error", 
+        function(e) { 
+	    return false;
+	});
     });
   }
 
@@ -92,11 +97,11 @@ exports.app = function () {
       sock.end();
     });
     chan.on("data", function (data) {
-      //console.log(" < DATA FROM SERVER: " + data);
+      console.log(" < DATA FROM SERVER: " + data);
       sock.send(data);
     });
     sock.on("message", function (data) {
-      //console.log(" > DATA FROM BROWSER: " + data);
+      console.log(" > DATA FROM BROWSER: " + data);
       chan.writeRaw(data);
     });
     sock.on("end", function () {
