@@ -1,8 +1,12 @@
 * Relay.io backend TODO items
 
-** TODO Setup current relay.io on dev and live servers
+** DONE Setup current relay.io on dev and live servers
+** TODO Finish browser communication testing (Websocket, XHR, etc)
+** TODO Cleanup and document relay modules
+** TODO Work on more complete error reporting and service recovery
 ** TODO Build test cases and benchmarks
-** TODO Working on more complete error reporting and service recovery
+
+
 
 * Future ideas
 
