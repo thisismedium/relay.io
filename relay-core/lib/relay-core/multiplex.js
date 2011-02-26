@@ -224,7 +224,7 @@ function MultiplexedSocket (stream) {
     this.end = this.destroy = function () {
       var buf = new Buffer(pack('Cn', MODE_END, self.getId()), 'binary');
       doWrite(buf);
-      // removeChannel(id);
+      removeChannel(id);
     };
 
     this.write = function (data) {

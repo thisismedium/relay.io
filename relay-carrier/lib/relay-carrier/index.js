@@ -64,11 +64,7 @@ exports.app = function () {
   var pool = new ConnectionPool();
 
   // TODO: These should not be hard coded in here...
-  pool
-	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
-	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
-	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
-	.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")));
+  pool.addConnection(new MultiplexedSocket(net.createConnection(4011, "localhost")))
 
   pool.on("empty", function () {
     console.log(" - No connections left, I shall die");
@@ -94,15 +90,18 @@ exports.app = function () {
   function proxy(sock) {
     var chan = pool.getConnection().newChannel();
     chan.on("end", function () {
-      sock.end();
+	sock.end();
     });
+      chan.on("close", function () {
+	  sock.end();
+      });
     chan.on("data", function (data) {
       console.log(" < DATA FROM SERVER: " + data);
       sock.send(data);
     });
     sock.on("message", function (data) {
       console.log(" > DATA FROM BROWSER: " + data);
-      chan.writeRaw(data);
+      chan.write(data);
     });
     sock.on("end", function () {
       chan.end();
