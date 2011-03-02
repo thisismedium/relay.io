@@ -253,6 +253,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   function Arguments(argv) {
 
     var flagReaders = {};
+    var masterFlagReader;
     var aliases = {};
 
     function expandArgs (args) {
@@ -306,6 +307,11 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
       return this;
     }
 
+    this.onAnyFlag = function (fn) {
+      masterFlagReader = fn;
+      return this;
+    }
+
     this.parse = function (obj) {
       var self = this;
       var psrd = it.fold(function(a, b) {
@@ -314,6 +320,8 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
           var fr = flagReaders[fl];
           if (fr) {
             return [fr.call(self, a[0]), a[1]];
+          } else if (masterFlagReader) {
+            return [masterFlagReader.call(self, b.string, a[0]), a[1]]
           } else {
             throw (new Error("Invalid flag"));
           }
@@ -324,6 +332,22 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
       return { "flags": psrd[0], 
                "arguments": psrd[1] }
     }
+
+    this.autoParse = function () {
+      this.onAnyFlag(function(flg, obj) {
+        console.log(flg);
+        var na = this.nextArgument();
+        if (na) {
+        obj[flg] = na;
+        } else {
+          obj[flg] = true;
+        }
+        return obj;
+      });
+      return this;
+    };
+    
+
   }
 
   Arguments.getProcessArguments = function () { 
