@@ -9,7 +9,7 @@ var Util                  = require("relay-core/util");
 var settings = ServerMedium.requireHostSettings();
 ServerMedium.reportErrors()
 
-var args = Utils.Arguments.getProcessArguments()
+var args = Util.Arguments.getProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
   .onFlag("-u", function (obj) {
@@ -21,6 +21,7 @@ var args = Utils.Arguments.getProcessArguments()
     return obj
   })
   .parse();
+
 
 
 var RelayStation = function () {
