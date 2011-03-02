@@ -7,8 +7,11 @@ function(exports, Proto, U) {
           .body(key)
       },
       GetApplicationData: function (appId) {
-        return Api.message("GetApplicationData")
+        return Api.message("GetApplication")
           .attr("to", appId)
+      },
+      CreateApplication: function () {
+        return Api.message("CreateApplication");
       },
       ApplicationData: function (adata) {
         return Api.message("ApplicationData")

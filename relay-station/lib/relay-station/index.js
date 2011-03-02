@@ -35,22 +35,6 @@ var RelayStation = function () {
   var hubConnection = (new ApplicationSocketLink(net.createConnection(settings.hub_port, settings.hub_host))).newChannel();
   var apps = {};
 
-  function getApplication (name, callback) {
-    if (!apps[name]) {
-      hubConnection.send(api.GetApplicationData(name), function (mesg) {
-        if (mesg.type != "Error") {
-          var newApp = new Application(mesg.body);
-          apps[name] = newApp;
-          callback(null, newApp);
-        } else {
-          callback(mesg, null);
-        }
-      });
-    } else {
-      callback(null, apps[name]);
-    }
-  }
-
   var identity, logger;
 
   function logChannels(ev) {
@@ -61,6 +45,22 @@ var RelayStation = function () {
 
   // This is the object that all of the request are initially handled by
   function MessageHandler (stream) {
+
+    function getApplication (name, callback) {
+      if (!apps[name]) {
+        hubConnection.send(api.GetApplication(name), function (mesg) {
+          if (mesg.type != "Error") {
+            var newApp = new Application(mesg.body);
+            apps[name] = newApp;
+            callback(null, newApp);
+          } else {
+            callback(mesg, null);
+          }
+        });
+      } else {
+        callback(null, apps[name]);
+      }
+    }
 
     this.Hello = function (request, resp) {
       // When we get the Hello request we must lookup the requested
@@ -114,7 +114,7 @@ var RelayStation = function () {
       } else {
         console.log(" + Connection to the hub has been established");
         logger.start();
-        return server.listen(port, host);
+        server.listen(port, host);
       }
     });
   }

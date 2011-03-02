@@ -157,8 +157,12 @@ var it = require("iterators");
     return message("RegisterStation", null, null, {"key": key});
   };
 
-  exports.GetApplicationData = function (appId) {
-    return message("GetApplicationData", appId, null);
+  exports.GetApplication = function (appId) {
+    return message("GetApplication", appId, null);
+  };
+
+  exports.CreateApplication = function () {
+    return message("CreateApplication", null, null);
   };
 
   exports.ApplicationData = function (adata) {
@@ -224,6 +228,7 @@ var it = require("iterators");
           }
         }
       }
+      return this;
     }
     
     this.dump = function () {
@@ -234,8 +239,14 @@ var it = require("iterators");
       return new ACL();
     };
 
-    this.setName    = function (n) { data.name = n };
-    this.setAddress = function (a) { data.address = a };
+    this.setName = function (n) { 
+      data.name = n;       
+      return this; 
+    };
+    this.setAddress = function (a) { 
+      data.address = a 
+      return this;
+    };
 
     this.getAddress = function ()  { 
       if (!data.address) {
@@ -274,10 +285,12 @@ var it = require("iterators");
     
     this.deleteRoleByKey = function (key) {
       data.roles = it.filter(function(x) { return x.key === key }, data.roles);
+      return this;
     };
     
     this.deleteChannelByAddress = function (address) {
       data.channels = it.filter(function(x) { return x.address === address }, data.channels);
+      return this;
     };
 
     this.updateRole = function (name, key, mask) {
@@ -290,7 +303,8 @@ var it = require("iterators");
           "key"  : key,
           "mask" : mask
         });
-      };
+      }
+      return this;
     };
 
     this.updateChannel = function (address, acl, mask) {
@@ -304,10 +318,11 @@ var it = require("iterators");
         "acl"     : acl.dump(),
         "mask"    : mask ? mask : 0
       });
-      
+      return this;
     };
     this.addUser = function(name, password, keys) {
-      throw "not implemented";
+      throw new Error("not implemented");
+      return this;
     };  
   }
   exports.Application = Application;
