@@ -1,10 +1,3 @@
-function split (f1, f2) {
-  return function() {
-    f1.call(f1, arguments);
-    f2.call(f2, arguments);
-  }
-}
-
 define(["exports",
         "servermedium", 
         "./database", 
@@ -17,13 +10,13 @@ define(["exports",
                  DB, 
                  CoreApi, 
                  Api, 
-                 U,
+                 Util,
                  Uuid) {
          // Load our settings information from serverMedium
          var settings = ServerMedium.requireHostSettings();
 
          // parse the command line arguments (if any)
-         var args = U.withProcessArguments()
+         var args = Util.Arguments.getProcessArguments()
            .alias("--user","-u")
            .alias("--verbose", "-v")
            .onFlag("-u", function (obj) {

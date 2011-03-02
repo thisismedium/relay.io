@@ -1,6 +1,5 @@
 var api                   = require("relay-core/api");
 var groupChannelsBySocket = require("relay-core/multiplex").groupChannelsBySocket;
-var Key                   = require("./Key").Key;
 var it                    = require("iterators");
 // Client ///////////////////////////////////
 

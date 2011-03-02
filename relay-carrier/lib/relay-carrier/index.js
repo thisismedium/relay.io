@@ -10,11 +10,11 @@ var it                    = require("iterators");
 var events                = require("events");
 var servermedium          = require("servermedium");
 var settings              = servermedium.requireHostSettings();
-var U                     = require("relay-core/util");
+var Util                  = require("relay-core/util");
 
 servermedium.reportErrors()
 
-var args = U.withProcessArguments()
+var args = Util.Arguments.getProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
   .onFlag("-u", function (obj) {
