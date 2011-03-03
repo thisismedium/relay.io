@@ -97,9 +97,16 @@ input { padding: 10px }
 }
 
 #user-input {
-    width: 90%;
+    width: 80%;
     margin-right: 1%;
 }
+
+#username-input {
+    width: 9%;
+    margin-right: 1%;
+    text-align: center;
+}
+
 #send {
     width: 8%;
 }

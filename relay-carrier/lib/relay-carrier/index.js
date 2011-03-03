@@ -10,6 +10,7 @@ var ServerMedium          = require("servermedium");
 var Static                = require("node-static");
 var Util                  = require("relay-core/util");
 var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
+var LineStream            = require("./line-stream.js");
 
 // Have serverMedium determine which settings file
 // to load and 'require' it.
@@ -85,6 +86,9 @@ exports.app = function () {
   var httpServer       = Http.createServer(simpleServer);
   var httpStreamServer = new HttpStreamServer(httpServer);
   var wsServer         = new WebSocketWrapper(httpServer);
+  var lsServer         = new LineStream.LineStreamServer();
+
+  lsServer.listen(6790, "0.0.0.0");
 
   function simpleServer (request, response) {
     request.addListener('end', function () {
@@ -129,6 +133,11 @@ exports.app = function () {
 
   wsServer.on("connection", function (sock) {
     console.log("Got a Websocket connection");
+    proxy(sock);
+  });
+
+  lsServer.on("connection", function (sock) {
+    console.log("Got a raw socket connection");
     proxy(sock);
   });
 
