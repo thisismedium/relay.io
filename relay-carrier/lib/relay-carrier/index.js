@@ -10,7 +10,7 @@ var ServerMedium          = require("servermedium");
 var Static                = require("node-static");
 var Util                  = require("relay-core/util");
 var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
-var LineStream            = require("./line-stream.js");
+var LineStream            = require("./line-stream");
 
 // Have serverMedium determine which settings file
 // to load and 'require' it.

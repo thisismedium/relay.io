@@ -41,7 +41,7 @@ function LineStreamReader (stream) {
   readLine();
 
   this.send = function (data) {
-    stream.write(data.replace("\n","\\n"));
+    stream.write(data.replace("\n","\\n") + "\n");
   };
   this.end = function () {
     stream.end();
