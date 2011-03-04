@@ -5,7 +5,7 @@
     <title>Relay Benchmarker</title>
 
     <script src="http://code.jquery.com/jquery-1.4.4.js"></script>
-    <script type="text/javascript" src="http://localhost:8000/relayio.js"></script>
+    <script type="text/javascript" src="http://api.dev.relay.io/relayio.js"></script>
 
 <script type="text/javascript">
 
@@ -13,7 +13,7 @@ function log (t) {
   $(".messages").text(t);
 }
 
-var RELAY_CARRIER_HOST = [["localhost", 8000]]
+var RELAY_CARRIER_HOST = [["api.dev.relay.io", 80]]
 
 var relay = new relayio.RelayClient("test",["write_key", "read_key"]);
 var start_time = null;

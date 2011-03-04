@@ -23,9 +23,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
   exports.hostname = hostname;
   exports.Host = Host;
 
-    
-  exports.withProcessArguments = withProcessArguments;
-  exports.isFlag = isFlag;
+  exports.Arguments = Arguments;
 
   Events.EventEmitter.once = function (event, callback) {
     var self = this;
@@ -252,17 +250,6 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
   var it = require("iterators");
 
-  function isFlag (f) { return (f instanceof Flag) }
-  function withProcessArguments () { return new Arguments(process.argv) }
-
-  function Flag (x) {
-    this.string = x;
-  }
-
-  function Arg (x) {
-    this.string = x;
-  }
-
   function Arguments(argv) {
 
     var flagReaders = {};
@@ -272,13 +259,13 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     function expandArgs (args) {
       return args.reduce(function(a, b) {
         if (b.slice(0,2) == "--") {
-          return a.concat(new Flag(b));
+          return a.concat(new Arguments.Flag(b));
         } else if (b[0] == "-" && b.slice(0,2) != "--") {
           return a.concat(b.slice(1).split("").map(function (x) {
-            return new Flag("-" + x);
+            return new Arguments.Flag("-" + x);
           }));
         } else {
-          return a.concat(new Arg(b));
+          return a.concat(new Arguments.Arg(b));
         }
       },[]);
     }
@@ -296,7 +283,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
     this.nextArgument = function () {
       var next = this.args.next();
-      if (!isFlag(next)) {
+      if (!Arguments.isFlag(next)) {
         return next.string;
       } else {
         // rewind one
@@ -307,7 +294,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
 
     this.nextFlag = function () {
       var next = this.args.next();
-      if (isFlag(next)) {
+      if (Arguments.isFlag(next)) {
         return next.string;
       } else {
         this.args.back();
@@ -328,7 +315,7 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     this.parse = function (obj) {
       var self = this;
       var psrd = it.fold(function(a, b) {
-        if (b instanceof Flag) {
+        if (b instanceof Arguments.Flag) {
           var fl = aliases[b.string] ? aliases[b.string] : b.string
           var fr = flagReaders[fl];
           if (fr) {
@@ -362,6 +349,24 @@ define(['exports', 'sys', 'events'], function(exports, Sys, Events) {
     
 
   }
+
+  Arguments.getProcessArguments = function () { 
+    return new Arguments(process.argv);
+  };
+
+  Arguments.isFlag = function (f) { 
+    return (f instanceof Arguments.Flag) 
+  };
+  
+  Arguments.Flag = function(x) {
+    this.string = x;
+  };
+
+  Arguments.Arg = function (x) {
+    this.string = x;
+  };
+
+
 
 });
 

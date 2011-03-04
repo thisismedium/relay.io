@@ -1,15 +1,16 @@
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
-var HttpStreamServer      = require("http-stream").HttpStreamServer;
-var MultiplexedSocket     = require("relay-core/multiplex").MultiplexedSocket;
-var U                     = require("relay-core/util");
-var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
 var Events                = require("events");
 var Http                  = require("http");
+var HttpStreamServer      = require("http-stream").HttpStreamServer;
 var Iterators             = require("iterators");
+var MultiplexedSocket     = require("relay-core/multiplex").MultiplexedSocket;
 var Net                   = require("net");
 var Path                  = require("path");
 var ServerMedium          = require("servermedium");
 var Static                = require("node-static");
+var Util                  = require("relay-core/util");
+var WebSocketWrapper      = require("relay-core/utils/websocket").WebSocketWrapper;
+var LineStream            = require("./line-stream.js");
 
 // Have serverMedium determine which settings file
 // to load and 'require' it.
@@ -18,7 +19,7 @@ var settings = ServerMedium.requireHostSettings();
 // ServerMedium should report any errors to the console.
 ServerMedium.reportErrors()
 
-var args = U.withProcessArguments()
+var args = Util.Arguments.getProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
   .onFlag("-u", function (obj) {
@@ -85,6 +86,9 @@ exports.app = function () {
   var httpServer       = Http.createServer(simpleServer);
   var httpStreamServer = new HttpStreamServer(httpServer);
   var wsServer         = new WebSocketWrapper(httpServer);
+  var lsServer         = new LineStream.LineStreamServer();
+
+  lsServer.listen(6790, "0.0.0.0");
 
   function simpleServer (request, response) {
     request.addListener('end', function () {
@@ -129,6 +133,11 @@ exports.app = function () {
 
   wsServer.on("connection", function (sock) {
     console.log("Got a Websocket connection");
+    proxy(sock);
+  });
+
+  lsServer.on("connection", function (sock) {
+    console.log("Got a raw socket connection");
     proxy(sock);
   });
 

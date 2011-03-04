@@ -21,6 +21,9 @@ function(exports, Proto, U) {
         return Api.message("Error")
           .body({"code": 503, "message": "Permission Denied"});
       },
+      InvalidApplicationError: function() {
+        return Api.message("InvalidApplicationError");
+      },
       Okay: function () {
         return Api.message("Okay")
       }

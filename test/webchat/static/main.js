@@ -4,19 +4,27 @@ var RELAY_CARRIER_HOST = [["api.dev.relay.io", 80]]
 var command_history = [];
 var hist_pointer = 0;
 
+function realName (name) {
+  if(alias[name]) {
+    return alias[name];
+  } else {
+    return name;
+  }
+}
+
 function fixName (name) { 
   return name.replace(/[@#\/]/g,"_") 
 };
 
 function addUser(chan, name) {
-  $("#user-pane").append("<div class='user "+fixName(name)+"'>" + chan + "/" + name+"</div>");
+  $("#user-pane").append("<div class='user "+fixName(name)+"'>" + chan + "/" + realName(name)+"</div>");
 };
 function removeUser(name) {
   $(".user." + fixName(name)).remove();
 };
 
 function addMessage(message, to, from) {
-  $("#messages").append("<pre class='mesg'>"+from.getName()+": "+message+"</pre>");
+  $("#messages").append("<pre class='mesg'>"+realName(from.getName())+": "+message+"</pre>");
   var pane = document.getElementById("messages");
   pane.scrollTop = pane.scrollHeight
 }
@@ -24,6 +32,9 @@ function resetUI() {
   $("#messages").html("")
   $("#user-pane").html("")
 };
+
+var alias = {};
+
 var current_chan;
 
 function setupChan(chan, callback) {
@@ -41,6 +52,13 @@ function setupChan(chan, callback) {
 
     chan.on("client-enter", function (user) {
       addUser(chan.getName(), user.getName());
+      setTimeout(function(){
+        chan.send({
+          "type": "Introduce",
+          "name": $("#username-input").val()
+        })
+      }, 500)
+        
     });
     
     chan.on("client-exit", function(user) {
@@ -48,7 +66,13 @@ function setupChan(chan, callback) {
     });
     
     chan.on("message", function (mesg, from) {
-      addMessage(mesg, chan.getName(),from);
+      if (mesg.type == "Introduce") {
+        alias[from.getName()] = mesg.name;
+        removeUser(from.getName());
+        addUser(chan.getName(), from.getName());
+      } else {
+        addMessage(mesg, chan.getName(),from);
+      }
     });
     current_chan = chan;
     if (callback) callback(chan);
@@ -62,6 +86,16 @@ $(document).ready(function() {
                                               "1e39e158-3cb8-4bee-bb07-26b71702c471", 
                                               "812af3d1-288d-4469-8160-8cbaa4774539"]);
   relay.connect(function (global_chan, private_chan) {
+    if (!$("#username-input").val()) {
+      $("#username-input").val(relay.getClientId());
+    }
+    $("#username-input").change(function() {
+      global_chan.send({
+        "type": "Introduce",
+        "name": $("#username-input").val()
+      })
+    })
+
     $("#username").text(relay.getClientId());
     setupChan(global_chan, function() {});
     $("#send").click(sendUserInput);
@@ -108,8 +142,7 @@ $(document).ready(function() {
       hist_pointer = command_history.length;
       $("#user-input").val("");
     }
-    
-});
+  });
 });
 
 

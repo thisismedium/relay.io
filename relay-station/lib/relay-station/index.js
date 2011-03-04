@@ -1,20 +1,15 @@
-var serverMedium = require("servermedium");
-var settings = serverMedium.requireHostSettings();
-
-var Application = require("./Application").Application;
-var Key         = require("./Key").Key;
-
+var Api                   = require("relay-core/api");
+var Application           = require("./application").Application;
 var ApplicationSocketLink = require("relay-core/network").ApplicationSocketLink;
-var Log = require("relay-log/log").Log;
+var Log                   = require("relay-log/log").Log;
+var Net                   = require("net");
+var ServerMedium          = require("servermedium");
+var Util                  = require("relay-core/util");
 
-var api = require("relay-core/api");
-var net = require("net");
+var settings = ServerMedium.requireHostSettings();
+ServerMedium.reportErrors()
 
-var U = require("relay-core/util");
-
-serverMedium.reportErrors()
-
-var args = U.withProcessArguments()
+var args = Util.Arguments.getProcessArguments()
   .alias("--user","-u")
   .alias("--verbose", "-v")
   .onFlag("-u", function (obj) {
@@ -28,11 +23,12 @@ var args = U.withProcessArguments()
   .parse();
 
 
+
 var RelayStation = function () {
 
   console.log("Connecting to hub %s:%s", settings.hub_host, settings.hub_port)
     
-  var hubConnection = (new ApplicationSocketLink(net.createConnection(settings.hub_port, settings.hub_host))).newChannel();
+  var hubConnection = (new ApplicationSocketLink(Net.createConnection(settings.hub_port, settings.hub_host))).newChannel();
   var apps = {};
 
   var identity, logger;
@@ -48,7 +44,7 @@ var RelayStation = function () {
 
     function getApplication (name, callback) {
       if (!apps[name]) {
-        hubConnection.send(api.GetApplication(name), function (mesg) {
+        hubConnection.send(Api.GetApplication(name), function (mesg) {
           if (mesg.type != "Error") {
             var newApp = new Application(mesg.body);
             apps[name] = newApp;
@@ -68,7 +64,7 @@ var RelayStation = function () {
       getApplication(request.to, function (err, app) {
         if (err) {
           // no application found, report the error
-          resp.reply(api.InvalidApplicationError());
+          resp.reply(Api.InvalidApplicationError());
         } else {
           // application found, tell the application to assume this
           // stream (.assumeStream should take the control away from the
@@ -94,7 +90,7 @@ var RelayStation = function () {
     };
   }
 
-  var server = net.createServer(function (raw_stream) {
+  var server = Net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
     app_stream.on("channel", function (stream) {
       stream.bindMessageHandler(new MessageHandler(stream));
@@ -108,7 +104,7 @@ var RelayStation = function () {
     identity = 'station-' + port + '@' + host;
     logger = new Log().publishUpdates(identity, settings.archive);
 
-      hubConnection.send(api.RegisterStation(settings.station_key), function(data) {
+      hubConnection.send(Api.RegisterStation(settings.station_key), function(data) {
       if (data.type == "Error") {
         console.log(" - Could not establish a connection with the hub");
       } else {
