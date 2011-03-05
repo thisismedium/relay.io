@@ -2,6 +2,7 @@ import socket
 import sys
 import asyncore
 import json
+import functools
 
 class LineStream(asyncore.dispatcher):
 
@@ -38,6 +39,14 @@ class LineStream(asyncore.dispatcher):
             print wrote
             self.outputBuffer = self.outputBuffer[wrote:]
 
+class RelayError():
+    def fromJson (instigator, theError):
+        err = RelayError()
+        err.code = theError.code
+        err.message = theError.message
+        err.instigator = instigator
+        return err
+
 class RelayChannel:
     
     def __init__(self, address, stream):
@@ -51,7 +60,7 @@ class RelayChannel:
 
     def dispatch(self, mesg):
         for handler in self.messageHandlers:
-            handler(mesg["body"], RelayChannel(mesg["from"], self.stream))
+            handler(mesg, RelayChannel(mesg["from"], self.stream))
 
     def send(self, mesg):
         self.stream.send(mesg)
@@ -60,17 +69,25 @@ class RelayClient:
     
     def __init__(self):
         self.lineStream = LineStream("api.dev.relay.io", 6790)
-        self.onConnect = None
+        self.directMessageHandlers = {}
         self.channels = {}
+        self.uid = 1
 
+    def connectHandler(self, callback, mesg):
+        self.channels["#global"] = RelayChannel("#global", self)
+        self.channels[mesg["to"]] = RelayChannel(mesg["to"], self)
+        callback(self.channels["#global"], self.channels[mesg["to"]])
+
+    def joinHandler(self, callback, mesg):
+        callback(mesg)
+        
     def messageHandler(self, mesg):
         try:
             mesg = json.loads(mesg)
-            if (mesg["type"] == "Welcome"):
-                print "Got Welcome"
-                self.channels["#global"] = RelayChannel("#global", self)
-                self.channels[mesg["to"]] = RelayChannel(mesg["to"], self)
-                self.onConnect(self.channels["#global"], self.channels[mesg["to"]])
+            if mesg.has_key("id") and self.directMessageHandlers.has_key(mesg["id"]):
+                print self.directMessageHandlers
+                self.directMessageHandlers[mesg["id"]](mesg)
+                del self.directMessageHandlers[mesg["id"]]
             else:
                 if (self.channels.has_key(mesg["to"])):
                     self.channels[mesg["to"]].dispatch(mesg)                               
@@ -78,14 +95,32 @@ class RelayClient:
             print "Got Bad Json:"
             print mesg
 
+    def getNewUid(self):
+        self.uid += 1
+        return self.uid
+
+    def join (self, address, callback):
+        k = functools.partial(self.joinHandler, callback)
+        self.send({"type":"Join",
+                   "to": "%s"}, k)
+        
+
     def connect(self, onConnect):
         self.lineStream.onLine = self.messageHandler
         self.onConnect = onConnect
-        self.send('{"type":"Hello","to":"test","body":{"keys":[]}}')
+        self.send({"type":"Hello",
+                   "to":"test",
+                   "body": {"keys":[]}
+                   }, functools.partial(self.connectHandler, onConnect))
         asyncore.loop()
 
-    def send(self, x):
-        self.lineStream.write(x.replace("\n","\\n") + "\n")
+    def send(self, mesgObject, callback=None):
+        if (callback):
+            uid = self.getNewUid()
+            mesgObject["id"] = uid
+            self.directMessageHandlers[uid] = callback
+        theJson = json.dumps(mesgObject)
+        self.lineStream.write(theJson.replace("\n","\\n") + "\n")
         
 class ChatMaster:
 
@@ -99,21 +134,15 @@ class ChatMaster:
             print mesg
 
     def connectHandler (self, globalChan, userChan):
+        print type(globalChan)
         globalChan.onMessage(self.messageHandler)
         userChan.onMessage(self.messageHandler)
+        self.client.join("#medium", lambda x: x)
 
     def __init__(self):
         self.clientNames = {}
-        client = RelayClient()
-        client.connect(self.connectHandler)
-
-def connectHandler(globalChan, userChan):
-    print "We are connected"
-    def messageHandler(message, sender):
-        print "Got Message:"
-        print message
-        print "from: %s" % sender.address
-    globalChan.onMessage(messageHandler)
+        self.client = RelayClient()
+        self.client.connect(self.connectHandler)
 
 ChatMaster()
 
