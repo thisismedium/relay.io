@@ -1,5 +1,4 @@
 import socket
-import sys
 import asyncore
 import json
 import functools
@@ -40,11 +39,12 @@ class LineStream(asyncore.dispatcher):
             self.outputBuffer = self.outputBuffer[wrote:]
 
 class RelayError():
-    def fromJson (instigator, theError):
+
+    @staticmethod
+    def fromJson (theError):
         err = RelayError()
-        err.code = theError.code
-        err.message = theError.message
-        err.instigator = instigator
+        err.code = theError.has_key("code") and theError["code"]
+        err.message = theError.has_key("message") and theError["message"]
         return err
 
 class RelayChannel:
@@ -58,7 +58,7 @@ class RelayChannel:
         self.messageHandlers.append(fn)
         return self
 
-    def dispatch(self, mesg):
+    def _dispatch(self, mesg):
         for handler in self.messageHandlers:
             handler(mesg, RelayChannel(mesg["from"], self.stream))
 
@@ -79,7 +79,10 @@ class RelayClient:
         callback(self.channels["#global"], self.channels[mesg["to"]])
 
     def joinHandler(self, callback, mesg):
-        callback(mesg)
+        if (mesg["type"] == "Error"):
+            callback(RelayError.fromJson(mesg))
+        else:
+            callback(mesg)
         
     def messageHandler(self, mesg):
         try:
@@ -90,7 +93,7 @@ class RelayClient:
                 del self.directMessageHandlers[mesg["id"]]
             else:
                 if (self.channels.has_key(mesg["to"])):
-                    self.channels[mesg["to"]].dispatch(mesg)                               
+                    self.channels[mesg["to"]]._dispatch(mesg)                               
         except ValueError:
             print "Got Bad Json:"
             print mesg
@@ -122,27 +125,3 @@ class RelayClient:
         theJson = json.dumps(mesgObject)
         self.lineStream.write(theJson.replace("\n","\\n") + "\n")
         
-class ChatMaster:
-
-    def messageHandler (self, mesg, sender):
-        if mesg.has_key("type") and mesg["type"] == "Introduce":
-            self.clientNames[sender.address] = sender.address
-            sender.send(json.loads(self.clientNames))
-            print self.clientNames
-        else:
-            print "GOT MESSAGE"
-            print mesg
-
-    def connectHandler (self, globalChan, userChan):
-        print type(globalChan)
-        globalChan.onMessage(self.messageHandler)
-        userChan.onMessage(self.messageHandler)
-        self.client.join("#medium", lambda x: x)
-
-    def __init__(self):
-        self.clientNames = {}
-        self.client = RelayClient()
-        self.client.connect(self.connectHandler)
-
-ChatMaster()
-

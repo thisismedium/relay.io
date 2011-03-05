@@ -2,3 +2,4 @@
 *.packages
 .defjs
 .#*
+*.pyc
