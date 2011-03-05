@@ -10,6 +10,7 @@
     "relay-core": "file:../relay-core",
     "http-stream": "file:../deps/http-stream",
     "iterators": "file:../deps/iterator.js",
+    "iteratee": "file:../deps/iteratee.js",
     "node-static": "file:../deps/node-static",
     "servermedium": "file:../deps/servermedium.js"
   }
