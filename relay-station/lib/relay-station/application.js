@@ -219,11 +219,12 @@ function Application (data) {
       var global = getRouteByAddress("#global");
       global.addSubscriber(client);
 
+      // Inform the client about their client_id.
+      resp.reply(new api.Welcome(client.getClientId()));
+
       // Inform the global channel of the clients activation.
       global.send(new api.ClientEnter(client.getClientId(), "#global"), master);
 
-      // Inform the client about their client_id.
-      resp.reply(new api.Welcome(client.getClientId()));
 
     }
 
