@@ -367,15 +367,9 @@ var relayio = {};
       messageDispatcher.on("Welcome", function (json) {
         connected = true;
         user_id = json.to;
-
         var private_chan = new RelayChannel(user_id, self);
-        var global_chan  = new RelayChannel("#global", self);
-
         chans[user_id] = private_chan;
-        chans["#global"] = global_chan;
-
-        callback(global_chan, private_chan);
-
+        callback(private_chan);
       });
 
       
