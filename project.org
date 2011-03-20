@@ -1,0 +1,40 @@
+* Project Synopsis
+	
+** Understanding the problem to solve.
+
+Real-time collaboration between clients is becoming a common feature of many modern web applications however, such real-time network communication presents some obstacles to front-end and back-end web developers.  
+
+The most pronounced obstacle for many developers when building real-time network collaboration applications is scalability; that is to say building an application to handle thousands of clients all at once requires some thought and careful design.  
+
+
+** Core Features
+
+Nothing here yet
+
+
+* Project Glossary
+
+	- Application - Meta data describing a collection of users and channels including the permissions associated with them.
+
+	- Channel - a collection of users which have subscribed to a common	resource.
+
+	- Client - a network client (such as a browser)
+
+	- Message - an object containing meta data and sometimes a payload that can be routed through the relay network
+
+	- User - a client associated with a relay.io application, users can	be either static or dynamic.
+
+
+* Roadmap
+	
+** TODO Finish filling out the project.org file
+** DONE Setup current relay.io on dev and live servers
+** TODO Finish browser communication testing (Websocket, XHR, etc)
+** TODO Cleanup and document relay modules
+** TODO Work on more complete error reporting and service recovery
+** TODO Build test cases and benchmarks
+
+
+* Future ideas
+
+** Integrate Avro
