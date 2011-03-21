@@ -7,10 +7,52 @@ Real-time collaboration between clients is becoming a common feature of many mod
 The most pronounced obstacle for many developers when building real-time network collaboration applications is scalability; that is to say building an application to handle thousands of clients all at once requires some thought and careful design.  
 
 
-** Core Features
+** Core Modules
 
-Nothing here yet
+*** The API
 
+**** The Public API
+
+The relay API consist of a number of simple commands clients can use to interact with Relay, they are listed as follows.
+
+  - Hello - Initialize a session, receives a Welcome or error reply
+  - Join  - Join a channel, receives an error or Okay reply
+  - Leave - Leave a channel, receives an error or Okay reply
+  - Message - Send a message to a user or group, receives an error or Okay reply
+
+In addition to the above message that the client may receive the following message may be sent from the server to a client.
+
+  - ClientEnter - Indicates a client has entered a channel
+  - ClientExit  - Indicated a client has left a channel
+
+*** Message Handlers
+
+While there is a number of components in relay the most important core components are the Hub and the Stations.
+
+**** The Hub
+
+The Hub works as a central databases for relay, it has the simple job of answering queries about the network state.  The network state consist of two major parts:
+
+  - The channel and clients on the network (and permissions pertaining to each)
+  - The status of and Stations working on the network.
+
+**** Station(s)
+
+Clients (such as a web browser) connect and send Messages to Stations (indirectly).  Stations are responsible with keeping track of every client session that connects to them and routing messages.  Stations also keep track of permissions for each channel and client and block any unauthorized messages they may receive.  Stations must be able to synchronize with other Stations and Hubs.
+
+To achieve these goals stations must make use of a number of modules including:  
+
+  - internal message routing module - this module would accept messages and route them to the proper handling functions.  Handling functions route messages to clients and other stations and update the internal database as needed.
+
+  - internal communications network - this module must maintain connections to other Stations and the Hub plus route and received traffic.
+
+  - internal client and channel database - this module maintains a list of known channels and client sessions.  It must keep itself up to date when a client session ends.
+
+Both the communications module and the client/channel database must be synchronized with the Hub at all times.
+
+**** Resolving permissions
+
+Each client has a permissions mask and every channel has a permissions value, permissions are determined by performing a binary 'or' on the selected users mask and the selected channel permission (user_mask | channel_perm).  If the channels ACL contains a specific user permission that value is used. (TODO is this right??)
 
 * Project Glossary
 
@@ -25,14 +67,19 @@ Nothing here yet
 	- User - a client associated with a relay.io application, users can	be either static or dynamic.
 
 
-* Roadmap
+* Project TODO Items
 	
 ** TODO Finish filling out the project.org file
-** DONE Setup current relay.io on dev and live servers
+** TODO Add app create/deletion to Hub API
+** TODO Setup Hub to generate keys for new users
+** TODO Fix user permissions on Stations
+** TODO Add renewable sessions support to API
+** TODO Finish Python Client
 ** TODO Finish browser communication testing (Websocket, XHR, etc)
 ** TODO Cleanup and document relay modules
 ** TODO Work on more complete error reporting and service recovery
 ** TODO Build test cases and benchmarks
+** DONE Setup current relay.io on dev and live servers
 
 
 * Future ideas
