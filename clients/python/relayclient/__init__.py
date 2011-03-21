@@ -63,9 +63,8 @@ class RelayClient ():
         self.uid = 1
 
     def connectHandler(self, callback, mesg):
-        self.channels["#global"] = RelayChannel("#global", self)
         self.channels[mesg["to"]] = RelayUser(mesg["to"], self)
-        callback(self.channels["#global"], self.channels[mesg["to"]])
+        callback(self.channels[mesg["to"]])
 
     def joinHandler(self, channel, callback, mesg):
         if (mesg["type"] == "Error"):

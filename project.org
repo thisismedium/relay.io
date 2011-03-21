@@ -70,9 +70,10 @@ Each client has a permissions mask and every channel has a permissions value, pe
 * Project TODO Items
 	
 ** TODO Finish filling out the project.org file
-** TODO Add app create/deletion to Hub API
+** DONE Add app create/deletion to Hub API
 ** TODO Setup Hub to generate keys for new users
 ** TODO Fix user permissions on Stations
+** TODO Add Chmod like commands to the station
 ** TODO Add renewable sessions support to API
 ** TODO Finish Python Client
 ** TODO Finish browser communication testing (Websocket, XHR, etc)

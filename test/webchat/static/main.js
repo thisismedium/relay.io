@@ -85,34 +85,38 @@ $(document).ready(function() {
   var relay = new relayio.RelayClient("test",["a37d0b8e-2152-4f64-9b0b-1ae7c39d1da7", 
                                               "1e39e158-3cb8-4bee-bb07-26b71702c471", 
                                               "812af3d1-288d-4469-8160-8cbaa4774539"]);
-  relay.connect(function (global_chan, private_chan) {
+  relay.connect(function (private_chan) {
     if (!$("#username-input").val()) {
       $("#username-input").val(relay.getClientId());
     }
-    $("#username-input").change(function() {
-      global_chan.send({
-        "type": "Introduce",
-        "name": $("#username-input").val()
-      })
-    })
 
-    $("#username").text(relay.getClientId());
-    setupChan(global_chan, function() {});
-    $("#send").click(sendUserInput);
-    $("#user-input").keypress(function(e) {
-      if (e.keyCode == 13) {
-        sendUserInput();
-      }
-      if (e.keyCode == 38) {
-        var com;
-        if (com = command_history[--hist_pointer])
-          $("#user-input").val(com);
-      }
-      if (e.keyCode == 40) {
-        var com;
-        if (com = command_history[++hist_pointer])
-          $("#user-input").val(com);
-      }
+    relay.join("#global", function(err, global_chan){
+
+      $("#username-input").change(function() {
+        global_chan.send({
+          "type": "Introduce",
+          "name": $("#username-input").val()
+        })
+      });
+
+      $("#username").text(relay.getClientId());
+      setupChan(global_chan, function() {});
+      $("#send").click(sendUserInput);
+      $("#user-input").keypress(function(e) {
+        if (e.keyCode == 13) {
+          sendUserInput();
+        }
+        if (e.keyCode == 38) {
+          var com;
+          if (com = command_history[--hist_pointer])
+            $("#user-input").val(com);
+        }
+        if (e.keyCode == 40) {
+          var com;
+          if (com = command_history[++hist_pointer])
+            $("#user-input").val(com);
+        }
+      });
 
     });
     var matchCommand = new RegExp("^/(JOIN|join|LEAVE|leave) ?(.*)?");

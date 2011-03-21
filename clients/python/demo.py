@@ -34,9 +34,9 @@ class ChatMaster:
         print " + Joined %s" % chan.address
         ChanWatcher(chan)
         
-    def connectHandler (self, globalChan, userChan):
-        ChanWatcher(globalChan)
+    def connectHandler (self, userChan):
         userChan.on("Message", self.messageHandler)
+        self.client.join("#global", self.joinHandler)
         self.client.join("#medium", self.joinHandler)
         self.client.join("#talk", self.joinHandler)
         self.client.join("#linux", self.joinHandler)
