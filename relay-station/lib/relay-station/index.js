@@ -25,11 +25,8 @@ var args = Util.Arguments.getProcessArguments()
 
 
 
-var RelayStation = function () {
+var RelayStation = function (stationInbox, hubBox) {
 
-  console.log("Connecting to hub %s:%s", settings.hub_host, settings.hub_port)
-    
-  var hubConnection = (new ApplicationSocketLink(Net.createConnection(settings.hub_port, settings.hub_host))).newChannel();
   var apps = {};
 
   var identity, logger;
@@ -101,7 +98,7 @@ var RelayStation = function () {
 
   this.listen = function (port, host) {
     console.log("Waiting for a connection to the hub...");
-
+   
     identity = 'station-' + port + '@' + host;
     if (settings.logging !== false) logger = new Log().publishUpdates(identity, settings.archive);
     hubConnection.send(Api.RegisterStation(settings.station_key), function(data) {
@@ -122,8 +119,21 @@ exports.app = function () {
   var port = args.arguments[3] ? args.arguments[3] : 4011;
   var host = args.arguments[2] ? args.arguments[2] : "localhost";
 
+  var hubConnection = connectToHub() // TODO
+
+  var dispatcher = new Dispatcher();
+  var stationBox = dispatcher.newMailBox("relay");
+
+  var hubBox = dispatcher.newMailBox("hub");
+  var hubBox.addSubscriber(new Client("hub", hubConnection));
+
+  var server = new Server(host, port) // TODO
+  dispatcher.registerServer(server);
+
   console.log("Starting RelayStation listening on port: " + port + " host: " + host);
-  (new RelayStation()).listen(port, host);
+
+  new RelayStation(stationBox, hubBox);
+
   if (args.flags.user) {
       console.log("Dropping to user: %s", args.flags.user)
     try {
