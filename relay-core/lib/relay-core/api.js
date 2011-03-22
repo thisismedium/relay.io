@@ -1,7 +1,7 @@
 var it = require("iterators");
 // The Relay API is defined below
-
 (function (exports) {
+  var Message = require("./types/Message");
 
   exports.RELAY_MASTER_ADDRESS = "relayio";
 

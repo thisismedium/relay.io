@@ -6,8 +6,9 @@ var Net                   = require("net");
 var ServerMedium          = require("servermedium");
 var Util                  = require("relay-core/util");
 
-var settings = ServerMedium.requireHostSettings();
-ServerMedium.reportErrors()
+var settings = ServerMedium.requireSettings();
+if (settings.useErrorConsole !== false) 
+  ServerMedium.reportErrors()
 
 var args = Util.Arguments.getProcessArguments()
   .alias("--user","-u")
@@ -46,7 +47,7 @@ var RelayStation = function () {
       if (!apps[name]) {
         hubConnection.send(Api.GetApplication(name), function (mesg) {
           if (mesg.type != "Error") {
-            var newApp = new Application(mesg.body);
+            var newApp = new RelayApplication(mesg.body);
             apps[name] = newApp;
             callback(null, newApp);
           } else {
@@ -102,14 +103,13 @@ var RelayStation = function () {
     console.log("Waiting for a connection to the hub...");
 
     identity = 'station-' + port + '@' + host;
-    logger = new Log().publishUpdates(identity, settings.archive);
-
-      hubConnection.send(Api.RegisterStation(settings.station_key), function(data) {
+    if (settings.logging !== false) logger = new Log().publishUpdates(identity, settings.archive);
+    hubConnection.send(Api.RegisterStation(settings.station_key), function(data) {
       if (data.type == "Error") {
         console.log(" - Could not establish a connection with the hub");
       } else {
         console.log(" + Connection to the hub has been established");
-        logger.start();
+        if (logger) logger.start();
         server.listen(port, host);
       }
     });

@@ -1,159 +1,14 @@
 var api                   = require("relay-core/api");
 var groupChannelsBySocket = require("relay-core/multiplex").groupChannelsBySocket;
 var it                    = require("iterators");
-// Client ///////////////////////////////////
 
-/*
-   a Client is a user of the application, when a client initializes a
-   session it is given a client-id...
-*/
-
-function Client (client_id, stream) {
-
-  var perms = 0;
-  var roles = {};
-
-  this.addRole = function (role) {
-    roles[role.key] = role;
-    perms = role.mask | perms;
-  };
-
-  this.__defineGetter__("roles", function () { return roles });
-  this.__defineGetter__("mask", function () { return perms });
-  this.__defineGetter__("address", function () { return client_id });
-
-  this.canWrite = function canWrite () {
-    return api.PERM_WRITE & perms;
-  };
-
-  this.canRead = function canRead () {
-    return api.PERM_READ & perms;
-  };
-
-  this.canCreate = function () {
-    return api.PERM_CREATE_CHAN & perms;
-  };
-
-  this.getClientId = function getClientId() {
-    return client_id;
-  };
-
-  ////////////
-
-  this.getStream = function getStream () {
-    return stream;
-  };
-
-  this.getSocket = function getSocket () {
-    return stream.getSocket();
-  };
-
-  this.send = function (data) {
-    return stream.send(data);
-  };
-
-}
-Client.prototype.toString = function () { return "<Client>" };
-// Route ///////////////
-
-// A Route is a collection of one or more clients.
-
-function Route (name, mask, acl) {
-  var self = this;
-  if (typeof(mask) === "undefined") mask = api.PERM_READ | api.PERM_WRITE;
-  var subscribers = [];
-
-  this.getName = function getName () {
-    return name;
-  }
-
-  this.__defineSetter__("mask", function (m) { mask = m });
-  this.__defineSetter__("acl",  function (a) { acl = acl });
-  this.__defineGetter__("address", function () { return name });
-
-  this.mergeClientMask = function (client) {
-    var cmask = mask;
-    if (acl) {
-      it.each(client.roles, function (role) {
-        var ar = acl.getRoleByKey(role[1].key);
-        if (ar) {
-          cmask = ar.mask | cmask;
-        }
-      });
-    } else {
-      cmask = client.mask | cmask;
-    }
-    return cmask;
-  };
-
-  this.canClientSubscribe = function (client) {
-    if (client.address == api.RELAY_MASTER_ADDRESS) return 1;
-    var cmask = this.mergeClientMask(client);
-    return api.PERM_READ & cmask;
-  };
-
-  this.canClientWrite = function (client) {
-    if (client.address == api.RELAY_MASTER_ADDRESS) return 1;
-    var cmask = this.mergeClientMask(client);
-    return api.PERM_WRITE & cmask;
-  }
-
-  this.addSubscriber = function (client) {
-    if (this.canClientSubscribe(client)) {
-      for (var i = 0; i < subscribers.length; i++) {
-        if (subscribers[i].getClientId() === client.getClientId()) {
-          return false;
-        }
-      }
-      subscribers.push(client);
-
-      function remove () {
-        self.removeSubscriber(client);
-        self.send(new api.ClientExit(client.getClientId(), self.address),
-                  new Client(api.RELAY_MASTER_ADDRESS));
-      };
-
-      client.getStream().on("close", remove);
-      client.getStream().on("end",   remove);
-      client.getStream().on("error", remove);
-      return true;
-    } else {
-      return false;
-    }
-  };
-
-  this.listSubscribers = function listSubscribers () {
-    return subscribers.map(function(subscriber) {
-      return subscriber.getClientId();
-    });
-  };
-
-  this.removeSubscriber = function (client) {
-    subscribers = it.filter(function (sub) {
-      return (sub.getClientId() === client.getClientId());
-    }, subscribers);
-  };
-
-  this.send = function (mesg, from) {
-    if (!(from instanceof Client)) {
-      throw new Error("You must provide a message and client from which the message originated");
-      return false;
-    } else if (this.canClientWrite(from)) {
-      mesg.from = from.address;
-      var streams = subscribers.map(function (s) { return s.getStream() });
-      groupChannelsBySocket(streams).forEach(function(sub) {
-        sub[0].multiWrite(sub, mesg);
-      });
-      return true;
-    } else {
-      return false;
-    }
-  };
-};
+var Application           = require("relay-core/types/Application");
+var Client                = require("relay-core/types/Client");
+var Route                 = require("relay-core/types/Route");
 
 // Application ////////////////////////////////////////////////////////////
 
-function Application (data) {
+function RelayApplication (data) {
   var self = this;
   this.load(data);
 
@@ -299,6 +154,6 @@ function Application (data) {
   };
 
 }
-Application.prototype = new api.Application();
+Application.prototype = new Application();
 exports.Application = Application;
 
