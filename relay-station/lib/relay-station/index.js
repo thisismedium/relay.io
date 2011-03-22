@@ -23,9 +23,22 @@ var args = Util.Arguments.getProcessArguments()
   })
   .parse();
 
+function makeRelayApplication (appData) {
+  var dispatcher = new Distpatcher();
+  var mb = dispatcher.newMailBox("relay", "+w");
+  mb.on("Join", function (mesg) {
+    var chan = dispatcher.getMailBox(mesg.body.chan);
+    if (!chan) chan = dispatcher.newMailBox(mesg.body.chan);
+    chan.setClientPerms(sender.label, "+r");
+    chan.addSubscriber(sender);
+  });
+  mb.on("Leave", function (mesg) {
+    var chan = dispatcher.getMailBox(mesg.body.chan);
+    });
+};
 
 
-var RelayStation = function (stationInbox, hubBox) {
+var RelayStation = function (dispatcher, stationBox) {
 
   var apps = {};
 
@@ -37,56 +50,46 @@ var RelayStation = function (stationInbox, hubBox) {
     this.log(ev.type + '-count', ev.count, recv);
   }
 
-  // This is the object that all of the request are initially handled by
-  function MessageHandler (stream) {
-
-    function getApplication (name, callback) {
-      if (!apps[name]) {
-        hubConnection.send(Api.GetApplication(name), function (mesg) {
-          if (mesg.type != "Error") {
-            var newApp = new RelayApplication(mesg.body);
-            apps[name] = newApp;
-            callback(null, newApp);
-          } else {
-            callback(mesg, null);
-          }
-        });
-      } else {
-        callback(null, apps[name]);
-      }
-    }
-
-    this.Hello = function (request, resp) {
-      // When we get the Hello request we must lookup the requested
-      // application and begin passing messages onto it.
-      getApplication(request.to, function (err, app) {
-        if (err) {
-          // no application found, report the error
-          resp.reply(Api.InvalidApplicationError());
+  function getApplication (name, callback) {
+    if (!apps[name]) {
+      stationBox.send(Api.GetApplication(name).to("hub"), function (mesg) {
+        if (mesg.type != "Error") {
+          var newApp = makeRelayApplication(mesg.body);
+          apps[name] = newApp;
+          callback(null, newApp);
         } else {
-          // application found, tell the application to assume this
-          // stream (.assumeStream should take the control away from the
-          // RelayStation so all messages are passed directly to the application)
-          stream.bindMessageHandler(new app.MessageHandler());
-          stream.dispatch(request);
-          
-          logger
-            .bind(stream, app.getAddress())
-            .map(logChannels)
-            .inject({ appId: request.to, kind: 'hello', count: 1 });
-
+          callback(mesg, null);
         }
       });
-
-      // Bind a logger to this stream. Inject a not about the hello
-      // request since it wouldn't be tracked otherwise.
-    };
-
-    this.InvalidRequest = function (request) {
-      console.log("Got a non Hello request");
-      stream.end();
-    };
+    } else {
+      callback(null, apps[name]);
+    }
   }
+
+  stationBox.on("Hello", function () {
+    // When we get the Hello request we must lookup the requested
+    // application and begin passing messages onto it.
+    getApplication(request.to, function (err, app) {
+      if (err) {
+        // no application found, report the error
+        resp.reply(Api.InvalidApplicationError());
+      } else {
+        app.collectFromClient(sender.stream);
+        var mb = app.newMailBox(newClient.label);
+        mb.setDefaultPerms("+w");
+        mb.setClientPerms(newClient.label, "+r");
+        mb.addSubscriber(newClient);
+        mb.send(Api.Okay().to(newClient.label));
+
+        logger
+          .bind(stream, app.getAddress())
+          .map(logChannels)
+          .inject({ appId: request.to, kind: 'hello', count: 1 });
+        
+      }
+    });
+  });
+
 
   var server = Net.createServer(function (raw_stream) {
     var app_stream = new ApplicationSocketLink(raw_stream);
@@ -132,7 +135,7 @@ exports.app = function () {
 
   console.log("Starting RelayStation listening on port: " + port + " host: " + host);
 
-  new RelayStation(stationBox, hubBox);
+  new RelayStation(dispatcher, stationBox);
 
   if (args.flags.user) {
       console.log("Dropping to user: %s", args.flags.user)
