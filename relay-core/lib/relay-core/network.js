@@ -1,6 +1,7 @@
 require("./inherit");
 var events = require("events");
 var Api = require("./api");
+var Net = require("net");
 var MultiplexedSocket = require("./multiplex").MultiplexedSocket;
 
 var ApplicationSocketLink = function (raw_socket, api) {
@@ -136,3 +137,8 @@ var ApplicationSocketLinkChannel = function (socketChan, api) {
 ApplicationSocketLinkChannel.inheritsFrom(events.EventEmitter);
 
 exports.ApplicationSocketLink = ApplicationSocketLink;
+
+exports.createConnection = function (port, host) {
+  var con = new ApplicationSocketLink(Net.createConnection(port, host))
+  return con.newChannel();
+}

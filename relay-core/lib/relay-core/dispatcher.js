@@ -10,20 +10,24 @@ function Dispatcher () {
   var mailboxes = {};
   var servers   = [];
   var routes    = {};
+  var underliverHandler = function (this, mesg, next) { next(false) }
 };
+Dispatcher.prototype.routeUndeliverablesTo = function(fn) {
+  this.underliverHandler = fn;
+}
 
 // newMailBox - create and register a new mailbox
-Dispatcher.prototype.newMailBox = function (label, perms) {
+Dispatcher.prototype.newMailBox = function (address, perms) {
   var p  = Perms.makePermFromString(perm, 0);
-  var mb = new MailBox(this, label, p);
-  this.mailboxes[label] = mb;
+  var mb = new MailBox(this, address, p);
+  this.mailboxes[address] = mb;
   return mb
 };
 
 // collectFrom - tells the dispatcher to collect messages from a stream
 // and route them to mailboxes...
 Dispatcher.prototype.collectFromClient = function (route, perms) {
-  routes[label] = { "route": route, "perms": perms };
+  routes[address] = { "route": route, "perms": perms };
   return this;
 };
 
@@ -32,9 +36,9 @@ Dispatcher.prototype.collectFromClient = function (route, perms) {
 // and then sent to the subscribers of the mailbox.  The mailbox expects legal 
 // message from the dispatcher, though the permissions for the mailbox are stored
 // in the mailbox object itself.
-function MailBox (parent, label, defaultPerm) {
+function MailBox (parent, address, defaultPerm) {
   this.parent      = parent;
-  this.label       = label;
+  this.address       = address;
   this.defaultPerm = defaultPerm || 0;
   this.clientPerms = {};
   this.subscriber  = [];
@@ -52,12 +56,12 @@ MailBox.prototype.setDefaultPerms = function (permstr) {
 // to confirm that a subscriber has read perms when they are added.
 MailBox.prototype.setClientPerms = function (client, permstr) {
   var perm = Perm.makePermFromString(permstr, 0);
-  this.clientPerms[client.label] = perms;
+  this.clientPerms[client.address] = perms;
   return this;
 };
 
 MailBox.prototype.addSubscriber = function (client) {
-  var perm = this.defaultPerm | (this.clientPerms[client.label] ? this.clientPerms[client.label] : 0)
+  var perm = this.defaultPerm | (this.clientPerms[client.address] ? this.clientPerms[client.address] : 0)
   if (Perms.canRead(perm)) {
     this.subscribers.push(client);
     return true;
@@ -66,17 +70,17 @@ MailBox.prototype.addSubscriber = function (client) {
   }
 }
 
-// the Client object simply encapsulates a label and a stream so they can
+// the Client object simply encapsulates a address and a stream so they can
 // be passed to and used by the dispatchr in a more uniform manner.
 // Client act as streams.
 U.inherits(Client, Events.EventEmitter);
-function Client (label, stream) {
+function Client (address, stream) {
   Events.EventEmitter.apply(this);
-  this.label = label;
+  this.address = address;
   this.stream = stream;
   proxyEvents(["error","end"], stream, this);
   stream.on("data", function (mesg) {
-    mesg.to = label;
+    mesg.to = address;
     self.emit(mesg);
   });
 };
